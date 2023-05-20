@@ -2,21 +2,34 @@
 # Run with `uvicorn example:app`
 import datetime
 import json
+import os
 import signal
-from typing import Annotated
+from typing import Annotated, Optional
 
 from redis import asyncio as aioredis
 from broadcaster import Broadcast
+
 from fastapi import FastAPI, WebSocket, Depends
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import UniqueConstraint
+
+from sqlmodel import Field, Session, SQLModel, create_engine, select
+
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, BaseSettings
 import asyncio
 from uvicorn.main import Server
-from fastapi.middleware.cors import CORSMiddleware
+
+
+from dotenv import load_dotenv
+load_dotenv()
 
 
 REDIS_ADDR = 'redis://127.0.0.1:6379'
+SQLALCHEMY_DATABASE_URL = f'mysql+pymysql://{os.getenv("USERNAME")}:{os.getenv("PASSWORD")}' \
+                          f'@{os.getenv("HOST")}/{os.getenv("DATABASE")}?charset=utf8mb4&ssl=true'
+print(SQLALCHEMY_DATABASE_URL)
 CORS_ORIGINS = [
     "http://localhost",
     "http://localhost:8080",
@@ -78,10 +91,19 @@ class RedisConfig(BaseSettings):
     redis_url: str = REDIS_ADDR
 
 
-class Vote(BaseModel):
+class VoteRequest(BaseModel):
     twitch_session_token: str
     vote: int  # 0 or 1 (left or right
     stage: int  # to index into the predefined mapping
+
+
+class Vote(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("twitch_user_id", "stage", name="one_vote_per_stage_per_user"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    twitch_user_id: int = Field(index=True)
+    stage: int = Field(index=True)
+    vote: int
 
 
 @asynccontextmanager
@@ -100,13 +122,21 @@ async def lifespan(_: FastAPI):
     print(f"[{datetime.datetime.now().isoformat()}] Disconnected.")
 
 
-
-
 running = True
 broadcast = Broadcast(REDIS_ADDR)
 config = RedisConfig()
 redis = aioredis.from_url(config.redis_url, decode_responses=True)
-
+engine = create_engine(SQLALCHEMY_DATABASE_URL,
+                       echo=True,
+                       connect_args={
+                           "ssl": {
+                               "ca":
+                                   "/etc/ssl/certs/ca-certificates.crt" if os.path.exists(
+                                       "/etc/ssl/certs/ca-certificates.crt")
+                                   else "/etc/ssl/cert.pem"
+                           }
+                       })
+SQLModel.metadata.create_all(engine)
 
 # app = FastAPI()
 app = FastAPI(lifespan=lifespan)
@@ -117,8 +147,16 @@ app.add_middleware(CORSMiddleware,
                    allow_headers=["*"], )
 
 
+# ======= dependencies =========
+
+
 def waifu_jam_keys():
     return Keys("waifujam")
+
+
+def get_session():
+    with Session(engine) as session:
+        yield session
 
 
 WaifuJamKeysDep = Annotated[Keys, Depends(waifu_jam_keys)]
@@ -158,7 +196,7 @@ async def check_identity(twitch_token: str, keys: WaifuJamKeysDep) -> dict | Non
 
 
 @app.post("/vote")
-async def vote_endpoint(vote: Vote, keys: WaifuJamKeysDep):
+async def vote_endpoint(vote: VoteRequest, keys: WaifuJamKeysDep):
     voter = await check_identity(vote.twitch_session_token)
     if voter is None:
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
