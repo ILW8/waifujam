@@ -5,33 +5,39 @@ import json
 import os
 import random
 import signal
+import urllib.parse
 from typing import Annotated, Optional
 
 from redis import asyncio as aioredis
 from broadcaster import Broadcast
 
-from fastapi import FastAPI, WebSocket, Depends, BackgroundTasks
+from fastapi import FastAPI, WebSocket, Depends, BackgroundTasks, Cookie
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import UniqueConstraint, Column, DateTime, func
 from sqlalchemy.exc import IntegrityError
 
 from sqlmodel import Field, Session, SQLModel, create_engine, select
+
+from sqlalchemy.sql import expression
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.types import DateTime
 
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, BaseSettings
 import asyncio
 from uvicorn.main import Server
 
-
 from dotenv import load_dotenv
-load_dotenv()
 
+load_dotenv()
 
 # ======== constants ========
 
 
 REDIS_ADDR = 'redis://127.0.0.1:6379'
+PUBSUB_CHANNEL = "waifujam"
+PUB_MIN_INTERVAL = 2
 SQLALCHEMY_DATABASE_URL = f'mysql+pymysql://{os.getenv("USERNAME")}:{os.getenv("PASSWORD")}' \
                           f'@{os.getenv("HOST")}/{os.getenv("DATABASE")}?charset=utf8mb4&ssl=true'
 print(SQLALCHEMY_DATABASE_URL)
@@ -50,6 +56,16 @@ STAGE_MAPPINGS = {
     6: {"section": 3, "maps": [0, 1]},
     7: {"section": 3, "maps": [2, 3]},
 }
+
+
+# noinspection PyPep8Naming
+class utcnow(expression.FunctionElement):
+    type = DateTime()
+
+
+@compiles(utcnow, 'mysql')
+def mysql_utcnow(element, compiler, **kw):
+    return "GETUTCDATE()"
 
 
 class Keys:
@@ -93,6 +109,10 @@ class Keys:
         """
         return f'votes:'
 
+    @prefixed_key
+    def last_time_publish(self) -> str:
+        return f'pub_ts'
+
 
 class RedisConfig(BaseSettings):
     # The default URL expects the app to run using Docker and docker-compose.
@@ -100,9 +120,40 @@ class RedisConfig(BaseSettings):
 
 
 class VoteRequest(BaseModel):  # comes in with a request
-    twitch_session_token: str
     vote: int = Field(None, ge=0, le=1)  # 0 or 1 (left or right)
     stage: int  # to index into the predefined mapping
+
+
+class TwitchSessionData(BaseModel):
+    sample = {
+        'cookie': {
+            'originalMaxAge': None,
+            'expires': None,
+            'httpOnly': True,
+            'path': '/'
+        },
+        'passport': {  # dict['passport']['user']['data'][0]['id']
+            'user': {
+                'data': [
+                    {
+                        'id': '1234567890',
+                        'login': 'abcdefgh',
+                        'display_name': 'AbcdEfgh',
+                        'type': '',
+                        'broadcaster_type': '',
+                        'description': "hello world",
+                        'profile_image_url': 'https://static-cdn.jtvnw.net/jtv_user_pictures/'
+                                             'xxxxxxxxxxxxxxxxx.png',
+                        'offline_image_url': '',
+                        'view_count': 0,
+                        'email': 'xxxxxxxxxxxxxxxxx@example.com',
+                        'created_at': '1970-01-01T07:27:27Z'
+                    }
+                ],
+                'accessToken': 'xxxxxxxxxxxxxxxxx',
+                'refreshToken': 'xxxxxxxxxxxxxxxxx'}
+        }
+    }
 
 
 class Vote(SQLModel, table=True):  # model of data stored in db
@@ -112,6 +163,9 @@ class Vote(SQLModel, table=True):  # model of data stored in db
     twitch_user_id: int = Field(index=True)
     stage: int = Field(index=True)
     vote: int
+    datetime: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=False), server_default=utcnow())
+    )
 
 
 @asynccontextmanager
@@ -190,9 +244,20 @@ Server.handle_exit = handle_exit
 async def update_redis_votes(vote: Vote, keys: Keys):
     await asyncio.gather(
         redis.sadd(f"{keys.live_votes_key()}:{vote.stage}", vote.twitch_user_id),
-        redis.hincrby(keys.live_votes_key(), f"{vote.stage}:{vote.vote}", 1)
+        redis.hincrby(keys.live_votes_key(), f"{vote.stage}:{vote.vote}", 1),
+        # redis.publish(PUBSUB_CHANNEL, f'votes|{await redis.hget(keys.live_votes_key(), f"{vote.stage}:0")}'
+        #                               f'|{await redis.hget(keys.live_votes_key(), f"{vote.stage}:1")}')
     )
-    print(await redis.hgetall(keys.live_votes_key()))
+    do_not_publish = await redis.get(keys.last_time_publish())
+    if do_not_publish is not None:
+        return
+    votes = await redis.hgetall(keys.live_votes_key())
+    left, right = votes[f"{vote.stage}:0"], votes[f"{vote.stage}:1"]
+    # print("publishing")
+    await broadcast.publish(PUBSUB_CHANNEL, f'votes|{left}|{right}')
+    await redis.set(keys.last_time_publish(), "", ex=PUB_MIN_INTERVAL)  # set empty value, only cares about expiry
+
+    # print()
 
 
 # ======== app ========
@@ -213,14 +278,30 @@ async def get():
     return JSONResponse({"message": "hi, this is probably not what you're looking for"}, status_code=404)
 
 
-async def check_identity(twitch_token: str, keys: Keys) -> dict | None:
-    return {"username": "notreallyaJame", "userid": random.randint(0, 1024)}  # todo: for debug, remove this
+# noinspection PyUnreachableCode
+async def check_identity(session_string: str, keys: Keys) -> dict | None:
+    # @app.post("/")
+    # async def handle_post(request: Request):
+    #     print(request.headers)
+    #     print(await request.body())
+    #     the_thing = request.cookies.get("_btmcache")
+    #     if the_thing is not None:
+    #         print(urllib.parse.unquote(the_thing))
+    session_string = urllib.parse.unquote(session_string)
+    print(session_string)
+    try:
+        print(f"{(session_string := session_string.split(':')[1].split('.')[0])=}")
+    except IndexError:  # session_string invalid
+        return None
+    session_key_redis = f"sess:{session_string}"
+    print(session_key_redis)
 
-    twitch_token = f"{keys.twitch_session_token_key_prefix()}:{twitch_token}"
+    # todo: for debug, remove this
+    return {"username": "notreallyaJame", "userid": random.randint(0, 1024)}
 
     try:
         token_data = json.loads(await redis.get(twitch_token))
-    except TypeError:  # redis.get -> None
+    except TypeError:  # redis.get -> None causes TypeError when calling json.loads
         return None
 
     print(token_data['username'])
@@ -232,8 +313,11 @@ async def check_identity(twitch_token: str, keys: Keys) -> dict | None:
 async def vote_endpoint(vote: VoteRequest,
                         keys: WaifuJamKeysDep,
                         background_tasks: BackgroundTasks,
-                        session: Session = Depends(get_session)):
-    voter = await check_identity(vote.twitch_session_token, keys)
+                        session: Session = Depends(get_session),
+                        session_string: Annotated[str | None, Cookie(alias="_btmcache")] = None):
+    if session_string is None:
+        return JSONResponse({"error": "Missing session cookie"}, status_code=400)
+    voter = await check_identity(session_string, keys)
     if voter is None:
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
 
@@ -283,6 +367,12 @@ async def get_current_state(keys: WaifuJamKeysDep):
     return state
 
 
+@app.get("/votes")
+async def get_current_votes(keys: WaifuJamKeysDep):
+    print(await redis.hgetall(keys.live_votes_key()))
+    return JSONResponse(await redis.hgetall(keys.live_votes_key()))
+
+
 @app.websocket("/ws")
 async def ws_connect_handler(websocket: WebSocket):
     await websocket.accept()
@@ -290,7 +380,7 @@ async def ws_connect_handler(websocket: WebSocket):
 
 
 async def ws_sender(websocket):
-    async with broadcast.subscribe(channel="waifujam") as subscriber:
+    async with broadcast.subscribe(channel=PUBSUB_CHANNEL) as subscriber:
         while running:  # to allow for clean shutdown
             try:
                 event = await asyncio.wait_for(subscriber.get(), timeout=2)
