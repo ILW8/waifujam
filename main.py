@@ -16,6 +16,24 @@ from uvicorn.main import Server
 from fastapi.middleware.cors import CORSMiddleware
 
 
+REDIS_ADDR = 'redis://127.0.0.1:6379'
+CORS_ORIGINS = [
+    "http://localhost",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+STAGE_MAPPINGS = {
+    0: {"section": 0, "maps": [0, 1]},
+    1: {"section": 0, "maps": [2, 3]},
+    2: {"section": 1, "maps": [0, 1]},
+    3: {"section": 1, "maps": [2, 3]},
+    4: {"section": 2, "maps": [0, 1]},
+    5: {"section": 2, "maps": [2, 3]},
+    6: {"section": 3, "maps": [0, 1]},
+    7: {"section": 3, "maps": [2, 3]},
+}
+
+
 class Keys:
     """Methods to generate key names for Redis data structures."""
 
@@ -55,31 +73,15 @@ class Keys:
         return f'votes:'
 
 
-class Config(BaseSettings):
+class RedisConfig(BaseSettings):
     # The default URL expects the app to run using Docker and docker-compose.
-    redis_url: str = 'redis://localhost:6379'
-
-
-config = Config()
-redis = aioredis.from_url(config.redis_url, decode_responses=True)
+    redis_url: str = REDIS_ADDR
 
 
 class Vote(BaseModel):
     twitch_session_token: str
     vote: int  # 0 or 1 (left or right
     stage: int  # to index into the predefined mapping
-
-
-STAGE_MAPPINGS = {
-    0: {"section": 0, "maps": [0, 1]},
-    1: {"section": 0, "maps": [2, 3]},
-    2: {"section": 1, "maps": [0, 1]},
-    3: {"section": 1, "maps": [2, 3]},
-    4: {"section": 2, "maps": [0, 1]},
-    5: {"section": 2, "maps": [2, 3]},
-    6: {"section": 3, "maps": [0, 1]},
-    7: {"section": 3, "maps": [2, 3]},
-}
 
 
 @asynccontextmanager
@@ -98,21 +100,21 @@ async def lifespan(_: FastAPI):
     print(f"[{datetime.datetime.now().isoformat()}] Disconnected.")
 
 
-origins = [
-    "http://localhost",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-]
+
+
+running = True
+broadcast = Broadcast(REDIS_ADDR)
+config = RedisConfig()
+redis = aioredis.from_url(config.redis_url, decode_responses=True)
+
 
 # app = FastAPI()
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware,
-                   allow_origins=origins,
+                   allow_origins=CORS_ORIGINS,
                    allow_credentials=True,
                    allow_methods=["*"],
                    allow_headers=["*"], )
-running = True
-broadcast = Broadcast("redis://127.0.0.1:6379")
 
 
 def waifu_jam_keys():
