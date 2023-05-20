@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import UniqueConstraint
 
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlmodel import Field, Session, SQLModel, create_engine
 
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, BaseSettings
@@ -183,7 +183,7 @@ async def get():
     return JSONResponse({"message": "hi, this is probably not what you're looking for"}, status_code=404)
 
 
-async def check_identity(twitch_token: str, keys: WaifuJamKeysDep) -> dict | None:
+async def check_identity(twitch_token: str, keys: Keys) -> dict | None:
     twitch_token = f"{keys.twitch_session_token_key_prefix()}:{twitch_token}"
 
     try:
@@ -197,7 +197,7 @@ async def check_identity(twitch_token: str, keys: WaifuJamKeysDep) -> dict | Non
 
 @app.post("/vote")
 async def vote_endpoint(vote: VoteRequest, keys: WaifuJamKeysDep):
-    voter = await check_identity(vote.twitch_session_token)
+    voter = await check_identity(vote.twitch_session_token, keys)
     if voter is None:
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
     state = await redis.get(keys.state_key())
