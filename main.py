@@ -3,14 +3,13 @@
 import asyncio
 import datetime
 import signal
-from functools import partial
 
 from broadcaster import Broadcast
 from fastapi import FastAPI, WebSocket, Response
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
-from uvicorn.server import HANDLED_SIGNALS
-from fastapi.websockets import WebSocketDisconnect
+import asyncio
+from uvicorn.main import Server
 
 
 class Vote(BaseModel):
@@ -30,18 +29,13 @@ STAGE_MAPPINGS = {
     7: {"section": 3, "maps": [2, 3]},
 }
 
+
+
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # add signal handler for shutdown
-
-    # loop = asyncio.get_running_loop()
-    # # disclaimer 1: this is a private attribute: might change without notice.
-    # # Also: unix only, won't work on windows
-    # signal_handlers = getattr(loop, "_signal_handlers", {})
-    #
-    # for sig in HANDLED_SIGNALS:
-    #     loop.add_signal_handler(sig, partial(handle_exit, signal_handlers.get(sig, None)), sig, None)
-
     signal.signal(signal.SIGINT, stop_server)
 
     # add broadcaster connect/disconnect
@@ -61,19 +55,21 @@ running = True
 broadcast = Broadcast("redis://127.0.0.1:6379")
 
 
+original_handler = Server.handle_exit
+
+
+def handle_exit(*args, **kwargs):
+    global running
+    running = False
+    original_handler(*args, **kwargs)
+
+
 def stop_server(*_):
     global running
     running = False
 
 
-# def handle_exit(original_handler, sig, _):
-#     global running
-#     running = False
-#     print("running = False", sig)
-#     if original_handler:
-#         # disclaimer 2: this should be opaque and performed only by the running loop.
-#         # not so bad: this is not changing, and is safe to do.
-#         return original_handler._run()
+Server.handle_exit = handle_exit
 
 
 @app.get("/")
@@ -89,7 +85,7 @@ async def vote_endpoint(vote: Vote):
 
 @app.get("/stages")
 async def get_stages():
-    return {}
+    return STAGE_MAPPINGS
 
 
 @app.get("/state")
@@ -107,10 +103,9 @@ async def ws_sender(websocket):
     async with broadcast.subscribe(channel="waifujam") as subscriber:
         # async for event in subscriber:
         #     await websocket.send_text(event.message)
-        while running:
+        while running:  # to allow for clean shutdown
             try:
-                event = await asyncio.wait_for(subscriber.get(), timeout=1)
+                event = await asyncio.wait_for(subscriber.get(), timeout=2)
                 await websocket.send_text(event.message)
             except asyncio.TimeoutError:
-                # streaming is completed
                 pass
