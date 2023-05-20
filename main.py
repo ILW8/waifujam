@@ -14,14 +14,13 @@ from broadcaster import Broadcast
 from fastapi import FastAPI, WebSocket, Depends, BackgroundTasks, Cookie
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import UniqueConstraint, Column, DateTime, func
+from sqlalchemy import UniqueConstraint, Column
 from sqlalchemy.exc import IntegrityError
-
-from sqlmodel import Field, Session, SQLModel, create_engine, select
-
 from sqlalchemy.sql import expression
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.types import DateTime
+
+from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, BaseSettings
@@ -254,7 +253,7 @@ async def update_redis_votes(vote: Vote, keys: Keys):
     votes = await redis.hgetall(keys.live_votes_key())
     left, right = votes[f"{vote.stage}:0"], votes[f"{vote.stage}:1"]
     # print("publishing")
-    await broadcast.publish(PUBSUB_CHANNEL, f'votes|{left}|{right}')
+    await broadcast.publish(PUBSUB_CHANNEL, f'updatevotes|{left}|{right}')
     await redis.set(keys.last_time_publish(), "", ex=PUB_MIN_INTERVAL)  # set empty value, only cares about expiry
 
     # print()
@@ -300,13 +299,15 @@ async def check_identity(session_string: str, keys: Keys) -> dict | None:
     return {"username": "notreallyaJame", "userid": random.randint(0, 1024)}
 
     try:
-        token_data = json.loads(await redis.get(twitch_token))
+        twitch_session_data = json.loads(await redis.get(twitch_token))
     except TypeError:  # redis.get -> None causes TypeError when calling json.loads
         return None
 
-    print(token_data['username'])
-    print(token_data['userid'])
-    return token_data
+    try:
+        print(twitch_session_data['passport']['user']['data'][0]['id'])
+    except KeyError:
+        return None
+    return twitch_session_data
 
 
 @app.post("/vote")
