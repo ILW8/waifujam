@@ -3,10 +3,11 @@
 import datetime
 import json
 import signal
+from typing import Annotated
 
 from redis import asyncio as aioredis
 from broadcaster import Broadcast
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Depends
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, BaseSettings
@@ -15,37 +16,43 @@ from uvicorn.main import Server
 from fastapi.middleware.cors import CORSMiddleware
 
 
-def prefixed_key(f):
-    """
-    A method decorator that prefixes return values.
-
-    Prefixes any string that the decorated method `f` returns with the value of
-    the `prefix` attribute on the owner object `self`.
-    """
-
-    def prefixed_method(*args, **kwargs):
-        self = args[0]
-        key = f(*args, **kwargs)
-        return f'{self.prefix}:{key}'
-
-    return prefixed_method
-
-
 class Keys:
     """Methods to generate key names for Redis data structures."""
+
+    @staticmethod
+    def prefixed_key(f):
+        def prefixed_method(*args, **kwargs):
+            self = args[0]
+            key = f(*args, **kwargs)
+            return f'{self.prefix}:{key}'
+
+        return prefixed_method
 
     def __init__(self, prefix: str = "DEFAULT_KEY_PREFIX"):
         self.prefix = prefix
 
     @prefixed_key
-    def twitch_session_token_key(self) -> str:
-        """A time series containing 30-second snapshots of BTC price."""
+    def twitch_session_token_key_prefix(self) -> str:
+        """Users who log in using twitch will have their account information stored in keys prefixed with this"""
         return f'twitch:session:token'
 
     @prefixed_key
     def state_key(self) -> str:
-        """A time series containing 30-second snapshots of BTC price."""
+        """
+        The current state of voting.
+        A value of -1 means voting isn't enabled at the moment.
+        """
         return f'state'
+
+    @prefixed_key
+    def live_votes_key(self) -> str:
+        """An eventually consistent count of live votes"""
+        return f'votes:live'
+
+    @prefixed_key
+    def votes_key_prefix(self) -> str:
+        """prefix which should be followed by a stage id"""
+        return f'votes:'
 
 
 class Config(BaseSettings):
@@ -107,6 +114,13 @@ app.add_middleware(CORSMiddleware,
 running = True
 broadcast = Broadcast("redis://127.0.0.1:6379")
 
+
+def waifu_jam_keys():
+    return Keys("waifujam")
+
+
+WaifuJamKeysDep = Annotated[Keys, Depends(waifu_jam_keys)]
+
 original_handler = Server.handle_exit
 
 
@@ -129,9 +143,8 @@ async def get():
     return JSONResponse({"message": "hi, this is probably not what you're looking for"}, status_code=404)
 
 
-async def check_identity(twitch_token: str) -> str | None:
-    keys = Keys("waifujam")
-    twitch_token = f"{keys.twitch_session_token_key()}:{twitch_token}"
+async def check_identity(twitch_token: str, keys: WaifuJamKeysDep) -> dict | None:
+    twitch_token = f"{keys.twitch_session_token_key_prefix()}:{twitch_token}"
 
     try:
         token_data = json.loads(await redis.get(twitch_token))
@@ -139,15 +152,17 @@ async def check_identity(twitch_token: str) -> str | None:
         return None
 
     print(token_data['username'])
-    return ""
+    return token_data
 
 
 @app.post("/vote")
-async def vote_endpoint(vote: Vote):
-    print(vote)
+async def vote_endpoint(vote: Vote, keys: WaifuJamKeysDep):
     voter = await check_identity(vote.twitch_session_token)
     if voter is None:
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
+    state = await redis.get(keys.state_key())
+    if await redis.sismember(f"{keys.votes_key_prefix()}{state}", voter["username"]):
+        return JSONResponse({"error": f"You have already voted for stage {state}"}, status_code=409)
     return vote
 
 
@@ -157,12 +172,9 @@ async def get_stages():
 
 
 @app.get("/state")
-async def get_current_state():
-    keys = Keys("waifujam")
-
-    try:
-        state = json.loads(await redis.get(keys.state_key()))
-    except TypeError:  # redis.get -> None
+async def get_current_state(keys: WaifuJamKeysDep):
+    state = await redis.get(keys.state_key())
+    if state is None:
         return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
 
     return state
@@ -176,8 +188,6 @@ async def ws_connect_handler(websocket: WebSocket):
 
 async def ws_sender(websocket):
     async with broadcast.subscribe(channel="waifujam") as subscriber:
-        # async for event in subscriber:
-        #     await websocket.send_text(event.message)
         while running:  # to allow for clean shutdown
             try:
                 event = await asyncio.wait_for(subscriber.get(), timeout=2)
