@@ -3,13 +3,14 @@
 import datetime
 import json
 import os
+import random
 import signal
 from typing import Annotated, Optional
 
 from redis import asyncio as aioredis
 from broadcaster import Broadcast
 
-from fastapi import FastAPI, WebSocket, Depends
+from fastapi import FastAPI, WebSocket, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import UniqueConstraint
@@ -25,6 +26,9 @@ from uvicorn.main import Server
 
 from dotenv import load_dotenv
 load_dotenv()
+
+
+# ======== constants ========
 
 
 REDIS_ADDR = 'redis://127.0.0.1:6379'
@@ -83,7 +87,10 @@ class Keys:
 
     @prefixed_key
     def votes_key_prefix(self) -> str:
-        """prefix which should be followed by a stage id"""
+        """
+        prefix which should be followed by a stage id
+        used for storing set of twitch user_ids that have voted in a certain stage
+        """
         return f'votes:'
 
 
@@ -141,14 +148,6 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL,
                            }
                        })
 
-# app = FastAPI()
-app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware,
-                   allow_origins=CORS_ORIGINS,
-                   allow_credentials=True,
-                   allow_methods=["*"],
-                   allow_headers=["*"], )
-
 
 # ======= dependencies =========
 
@@ -185,13 +184,37 @@ def stop_server(*_):
 Server.handle_exit = handle_exit
 
 
+# ======== utilities ========
+
+
+async def update_redis_votes(vote: Vote, keys: Keys):
+    await asyncio.gather(
+        redis.sadd(f"{keys.live_votes_key()}:{vote.stage}", vote.twitch_user_id),
+        redis.hincrby(keys.live_votes_key(), f"{vote.stage}:{vote.vote}", 1)
+    )
+    print(await redis.hgetall(keys.live_votes_key()))
+
+
+# ======== app ========
+
+# app = FastAPI()
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(CORSMiddleware,
+                   allow_origins=CORS_ORIGINS,
+                   allow_credentials=True,
+                   allow_methods=["*"],
+                   allow_headers=["*"], )
+
+
+# ======== routes ========
+
 @app.get("/")
 async def get():
     return JSONResponse({"message": "hi, this is probably not what you're looking for"}, status_code=404)
 
 
 async def check_identity(twitch_token: str, keys: Keys) -> dict | None:
-    return {"username": "notreallyaJame", "userid": 397511}  # todo: for debug, remove this
+    return {"username": "notreallyaJame", "userid": random.randint(0, 1024)}  # todo: for debug, remove this
 
     twitch_token = f"{keys.twitch_session_token_key_prefix()}:{twitch_token}"
 
@@ -206,7 +229,10 @@ async def check_identity(twitch_token: str, keys: Keys) -> dict | None:
 
 
 @app.post("/vote")
-async def vote_endpoint(vote: VoteRequest, keys: WaifuJamKeysDep, session: Session = Depends(get_session)):
+async def vote_endpoint(vote: VoteRequest,
+                        keys: WaifuJamKeysDep,
+                        background_tasks: BackgroundTasks,
+                        session: Session = Depends(get_session)):
     voter = await check_identity(vote.twitch_session_token, keys)
     if voter is None:
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
@@ -239,6 +265,7 @@ async def vote_endpoint(vote: VoteRequest, keys: WaifuJamKeysDep, session: Sessi
 
         # otherwise, different integrity error
         return JSONResponse({"error": "IntegrityError"}, status_code=500)
+    background_tasks.add_task(update_redis_votes, db_vote, keys)
     return vote
 
 
