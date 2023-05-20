@@ -13,8 +13,9 @@ from fastapi import FastAPI, WebSocket, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import UniqueConstraint
+from sqlalchemy.exc import IntegrityError
 
-from sqlmodel import Field, Session, SQLModel, create_engine
+from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, BaseSettings
@@ -91,13 +92,13 @@ class RedisConfig(BaseSettings):
     redis_url: str = REDIS_ADDR
 
 
-class VoteRequest(BaseModel):
+class VoteRequest(BaseModel):  # comes in with a request
     twitch_session_token: str
-    vote: int  # 0 or 1 (left or right
+    vote: int = Field(None, ge=0, le=1)  # 0 or 1 (left or right)
     stage: int  # to index into the predefined mapping
 
 
-class Vote(SQLModel, table=True):
+class Vote(SQLModel, table=True):  # model of data stored in db
     __table_args__ = (UniqueConstraint("twitch_user_id", "stage", name="one_vote_per_stage_per_user"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -110,6 +111,9 @@ class Vote(SQLModel, table=True):
 async def lifespan(_: FastAPI):
     # add signal handler for shutdown
     signal.signal(signal.SIGINT, stop_server)
+
+    # create databases
+    create_db_and_tables()
 
     # add broadcaster connect/disconnect
     print(f"[{datetime.datetime.now().isoformat()}] Connecting to broadcast backend...")
@@ -127,7 +131,7 @@ broadcast = Broadcast(REDIS_ADDR)
 config = RedisConfig()
 redis = aioredis.from_url(config.redis_url, decode_responses=True)
 engine = create_engine(SQLALCHEMY_DATABASE_URL,
-                       echo=True,
+                       echo=True,  # todo: remove this for prod
                        connect_args={
                            "ssl": {
                                "ca":
@@ -136,7 +140,6 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL,
                                    else "/etc/ssl/cert.pem"
                            }
                        })
-SQLModel.metadata.create_all(engine)
 
 # app = FastAPI()
 app = FastAPI(lifespan=lifespan)
@@ -148,6 +151,10 @@ app.add_middleware(CORSMiddleware,
 
 
 # ======= dependencies =========
+
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
 
 
 def waifu_jam_keys():
@@ -184,6 +191,8 @@ async def get():
 
 
 async def check_identity(twitch_token: str, keys: Keys) -> dict | None:
+    return {"username": "notreallyaJame", "userid": 397511}  # todo: for debug, remove this
+
     twitch_token = f"{keys.twitch_session_token_key_prefix()}:{twitch_token}"
 
     try:
@@ -192,17 +201,44 @@ async def check_identity(twitch_token: str, keys: Keys) -> dict | None:
         return None
 
     print(token_data['username'])
+    print(token_data['userid'])
     return token_data
 
 
 @app.post("/vote")
-async def vote_endpoint(vote: VoteRequest, keys: WaifuJamKeysDep):
+async def vote_endpoint(vote: VoteRequest, keys: WaifuJamKeysDep, session: Session = Depends(get_session)):
     voter = await check_identity(vote.twitch_session_token, keys)
     if voter is None:
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
+
     state = await redis.get(keys.state_key())
+    if state is None:
+        return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
+    if str(vote.stage) != state:  # str() because redis values are always strings
+        return JSONResponse({"error": f"currently active stage is {state}, tried voting for {vote.stage}"},
+                            status_code=400)
+
+    already_voted_resp = JSONResponse({"error": f"You have already voted for stage {state}"}, status_code=409)
     if await redis.sismember(f"{keys.votes_key_prefix()}{state}", voter["username"]):
-        return JSONResponse({"error": f"You have already voted for stage {state}"}, status_code=409)
+        return already_voted_resp
+
+    # insert into db, fail if vote already exists
+    db_vote = Vote(twitch_user_id=voter["userid"], stage=vote.stage, vote=vote.vote)
+    session.add(db_vote)
+    try:
+        session.commit()
+        session.refresh(db_vote)
+    except IntegrityError as e:
+        session.rollback()
+        from sqlalchemy import and_
+        res = session.exec(select(Vote).where(Vote.twitch_user_id == db_vote.twitch_user_id,
+                                              Vote.stage == db_vote.stage)).first()
+        if res is not None:  # vote on this stage by this user already exists
+            return JSONResponse({"error": f"twitch user {res.twitch_user_id} has already voted "
+                                          f"in stage {res.stage}"}, status_code=409)
+
+        # otherwise, different integrity error
+        return JSONResponse({"error": "IntegrityError"}, status_code=500)
     return vote
 
 
