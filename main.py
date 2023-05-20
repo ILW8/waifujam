@@ -230,12 +230,12 @@ async def vote_endpoint(vote: VoteRequest, keys: WaifuJamKeysDep, session: Sessi
         session.refresh(db_vote)
     except IntegrityError as e:
         session.rollback()
-        from sqlalchemy import and_
-        res = session.exec(select(Vote).where(Vote.twitch_user_id == db_vote.twitch_user_id,
-                                              Vote.stage == db_vote.stage)).first()
-        if res is not None:  # vote on this stage by this user already exists
-            return JSONResponse({"error": f"twitch user {res.twitch_user_id} has already voted "
-                                          f"in stage {res.stage}"}, status_code=409)
+        if "AlreadyExists" in str(e):  # dunno if ugly hack
+            res = session.exec(select(Vote).where(Vote.twitch_user_id == db_vote.twitch_user_id,
+                                                  Vote.stage == db_vote.stage)).first()
+            if res is not None:  # vote on this stage by this user already exists
+                return JSONResponse({"error": f"twitch user {res.twitch_user_id} has already voted "
+                                              f"in stage {res.stage}"}, status_code=409)
 
         # otherwise, different integrity error
         return JSONResponse({"error": "IntegrityError"}, status_code=500)
