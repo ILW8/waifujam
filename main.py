@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import asyncio
 from uvicorn.main import Server
+from fastapi.middleware.cors import CORSMiddleware
 
 
 class Vote(BaseModel):
@@ -30,9 +31,6 @@ STAGE_MAPPINGS = {
 }
 
 
-
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # add signal handler for shutdown
@@ -49,11 +47,21 @@ async def lifespan(_: FastAPI):
     print(f"[{datetime.datetime.now().isoformat()}] Disconnected.")
 
 
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+
 # app = FastAPI()
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(CORSMiddleware,
+                   allow_origins=origins,
+                   allow_credentials=True,
+                   allow_methods=["*"],
+                   allow_headers=["*"], )
 running = True
 broadcast = Broadcast("redis://127.0.0.1:6379")
-
 
 original_handler = Server.handle_exit
 
