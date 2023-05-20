@@ -3,5 +3,5 @@ python-dotenv~=1.0.0
 broadcaster[redis]==0.2.0
 
 pydantic~=1.10.7
-
+redis~=4.5.5
 uvicorn~=0.22.0

@@ -20,6 +20,8 @@ fetch("http://127.0.0.1:8000/stages")
             console.log('Socket Error: ', error);
         };
 
+// redis cli:
+// PUBLISH waifujam updatevideo|left|https://btmc.ams3.cdn.digitaloceanspaces.com/video1.mp4
 // PUBLISH waifujam updatevideo|left|https://btmc.ams3.cdn.digitaloceanspaces.com/video2.mp4
         socket.onmessage = event => {
             let data = event.data;

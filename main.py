@@ -1,16 +1,60 @@
 # Requires: `starlette`, `uvicorn`, `jinja2`
 # Run with `uvicorn example:app`
-import asyncio
 import datetime
+import json
 import signal
 
+from redis import asyncio as aioredis
 from broadcaster import Broadcast
-from fastapi import FastAPI, WebSocket, Response
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-from pydantic import BaseModel
+from pydantic import BaseModel, BaseSettings
 import asyncio
 from uvicorn.main import Server
 from fastapi.middleware.cors import CORSMiddleware
+
+
+def prefixed_key(f):
+    """
+    A method decorator that prefixes return values.
+
+    Prefixes any string that the decorated method `f` returns with the value of
+    the `prefix` attribute on the owner object `self`.
+    """
+
+    def prefixed_method(*args, **kwargs):
+        self = args[0]
+        key = f(*args, **kwargs)
+        return f'{self.prefix}:{key}'
+
+    return prefixed_method
+
+
+class Keys:
+    """Methods to generate key names for Redis data structures."""
+
+    def __init__(self, prefix: str = "DEFAULT_KEY_PREFIX"):
+        self.prefix = prefix
+
+    @prefixed_key
+    def twitch_session_token_key(self) -> str:
+        """A time series containing 30-second snapshots of BTC price."""
+        return f'twitch:session:token'
+
+    @prefixed_key
+    def state_key(self) -> str:
+        """A time series containing 30-second snapshots of BTC price."""
+        return f'state'
+
+
+class Config(BaseSettings):
+    # The default URL expects the app to run using Docker and docker-compose.
+    redis_url: str = 'redis://localhost:6379'
+
+
+config = Config()
+redis = aioredis.from_url(config.redis_url, decode_responses=True)
 
 
 class Vote(BaseModel):
@@ -82,12 +126,28 @@ Server.handle_exit = handle_exit
 
 @app.get("/")
 async def get():
-    return Response({"message": "hi, this is probably not what you're looking for"}, status_code=404)
+    return JSONResponse({"message": "hi, this is probably not what you're looking for"}, status_code=404)
+
+
+async def check_identity(twitch_token: str) -> str | None:
+    keys = Keys("waifujam")
+    twitch_token = f"{keys.twitch_session_token_key()}:{twitch_token}"
+
+    try:
+        token_data = json.loads(await redis.get(twitch_token))
+    except TypeError:  # redis.get -> None
+        return None
+
+    print(token_data['username'])
+    return ""
 
 
 @app.post("/vote")
 async def vote_endpoint(vote: Vote):
     print(vote)
+    voter = await check_identity(vote.twitch_session_token)
+    if voter is None:
+        return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
     return vote
 
 
@@ -98,7 +158,14 @@ async def get_stages():
 
 @app.get("/state")
 async def get_current_state():
-    return {}
+    keys = Keys("waifujam")
+
+    try:
+        state = json.loads(await redis.get(keys.state_key()))
+    except TypeError:  # redis.get -> None
+        return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
+
+    return state
 
 
 @app.websocket("/ws")
