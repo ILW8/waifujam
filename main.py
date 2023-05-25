@@ -28,6 +28,7 @@ import asyncio
 from uvicorn.main import Server
 
 from dotenv import load_dotenv
+from websockets.exceptions import ConnectionClosedOK
 
 load_dotenv()
 
@@ -435,4 +436,6 @@ async def ws_sender(websocket):
                 event = await asyncio.wait_for(subscriber.get(), timeout=2)
                 await websocket.send_text(event.message)
             except asyncio.TimeoutError:
+                pass
+            except ConnectionClosedOK:
                 pass
