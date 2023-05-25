@@ -367,8 +367,9 @@ async def get_current_state(keys: WaifuJamKeysDep):
     state = await redis.get(keys.state_key())
     if state is None:
         return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
+    state = int(state)
 
-    return state
+    return JSONResponse({"state": state})
 
 
 @app.post("/state")
@@ -380,7 +381,7 @@ async def get_current_state(new_state: Annotated[int, Body(embed=True)], keys: W
 async def update_state(new_state: int, keys: Keys):
     await redis.set(keys.state_key(), new_state)
     await broadcast.publish(PUBSUB_CHANNEL, f'newstate|{new_state}')
-    return await redis.get(keys.state_key())
+    return int(await redis.get(keys.state_key()))
 
 
 @app.get("/votes")

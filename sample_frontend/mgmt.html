@@ -12,14 +12,21 @@
 </head>
 
 <body>
+<hr>
+<p>Stage select</p>
+<p>Round visibility: <span id="currentVisibility">?</span></p>
 <label for="stage-input">Select stage: </label>
 <input id="stage-input"
        type="number"
        min="1"
        max="100"
-       value="1"
-       width="64"/>
+       value="0"
+       width="32"/>
 <button id="setStage">Set stage</button>
+<button id="hideRound">Hide round</button>
+
+
+<hr>
 
 <script src="scripts_mgmt.js"></script>
 </body>
