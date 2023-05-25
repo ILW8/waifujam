@@ -28,12 +28,22 @@ fetch("http://127.0.0.1:8000/stages")
                 return
             }
             let op = data.split("|")[0];
+            let args = data.split("|").slice(1)
             console.log(data.split("|"))
             switch (op) {
                 case "newstate":
                     state = parseInt(data.split("|")[1]);
                     updateState(state);
+                    getVotes();
                     break;
+                case "updatevotes":
+                    if (args.length !== 2) return;
+
+                    votesCountRight.dataset.newval = args[1].toString();
+                    animateCountUp(votesCountRight);
+                    votesCountLeft.dataset.newval = args[0].toString();
+                    animateCountUp(votesCountLeft);
+
             }
         };
     })
@@ -42,27 +52,28 @@ fetch("http://127.0.0.1:8000/stages")
 const voteLeftButton = document.getElementById("vote-left");
 const voteRightButton = document.getElementById("vote-right");
 const votesCountRight = document.getElementById("votes-right");
+const votesCountLeft = document.getElementById("votes-left");
+const currentStageDisplay = document.getElementById("stage-number");
 
 voteLeftButton.addEventListener('click', () => {
-    console.log("left")
+    sendVote(0)
 })
 voteRightButton.addEventListener('click', () => {
-    console.log("right");
-    votesCountRight.dataset.newval = (parseInt(votesCountRight.innerText) + 10).toString()
-    animateCountUp(votesCountRight)
-    sendVote(voteRightButton, 1)
+    sendVote(1)
 })
 
 function sendVote(vote) {
-    voteLeftButton.disabled = true
-    voteRightButton.disabled = true
-    fetch("http://127.0.0.1:8000/vote", {
+    // todo: uncomment these
+    // voteLeftButton.disabled = true
+    // voteRightButton.disabled = true
+    fetch("http://127.0.0.1:8000/vote?" + new URLSearchParams({gusdigfsduaioagguweriuveurg: 'true'}), {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            "stage": ""
+            "stage": state,
+            "vote": vote,
         })
     }).then(resp => {
         if (resp.ok) {
@@ -80,25 +91,6 @@ function sendVote(vote) {
     })
 }
 
-function doSetState(newState) {
-    fetch("http://127.0.0.1:8000/state", {
-        method: "POST",
-        body: JSON.stringify({new_state: newState}),
-        headers: {
-            "Content-Type": "application/json",
-            // 'Content-Type': 'application/x-www-form-urlencoded',
-        },
-    }).then(resp => resp.json()).then(data => {
-        console.log("Set new state: " + JSON.stringify(data))
-        stageVisibility.innerText = data["new_state"] === -1 ? "hidden" : data["new_state"];
-    })
-}
-
-function setStage() {
-    console.log(stageInput.value);
-    doSetState(stageInput.value);
-}
-
 
 function updateState(newState) {
     if (newState === -1) {
@@ -108,6 +100,7 @@ function updateState(newState) {
     }
     voteLeftButton.disabled = false;
     voteRightButton.disabled = false;
+    currentStageDisplay.innerText = newState;
 }
 
 
@@ -129,3 +122,14 @@ fetch("http://127.0.0.1:8000/state")
     console.log("something wrong: " + error)
 })
 
+
+function getVotes() {
+    fetch("http://127.0.0.1:8000/votes?stage=" + state)
+        .then(resp => resp.json())
+        .then(data => {
+            votesCountLeft.dataset.newval = data["" + state + ":0"];
+            votesCountRight.dataset.newval = data["" + state + ":1"];
+            animateCountUp(votesCountLeft);
+            animateCountUp(votesCountRight);
+        });
+}
