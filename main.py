@@ -149,7 +149,7 @@ class RedisConfig(BaseSettings):
 
 
 class VoteRequest(BaseModel):  # comes in with a request
-    vote: int = Field(None, ge=0, le=1)  # 0 or 1 (left or right)
+    vote: int = Field(ge=0, le=1)  # 0 or 1 (left or right)
     stage: int  # to index into the predefined mapping
 
 
@@ -345,7 +345,22 @@ async def vote_endpoint(vote: VoteRequest,
                         keys: WaifuJamKeysDep,
                         background_tasks: BackgroundTasks,
                         session: Session = Depends(get_session),
-                        session_string: Annotated[str | None, Cookie(alias="_btmcache")] = None):
+                        session_string: Annotated[str | None, Cookie(alias="_btmcache")] = None,
+                        gusdigfsduaioagguweriuveurg: bool = False):
+    # bypass checks, TODO: REMOVE THIS!!!!!!!!!!!!!!!
+    if gusdigfsduaioagguweriuveurg:
+        await redis.hincrby(keys.live_votes_key(), f"{vote.stage}:{vote.vote}", 1),
+
+        do_not_publish = await redis.get(keys.last_time_publish())
+        if do_not_publish is not None:
+            return vote
+        votes = await redis.hgetall(keys.live_votes_key())
+        left, right = votes.get(f"{vote.stage}:0", 0), votes.get(f"{vote.stage}:1", 0)
+        # print("publishing")
+        await broadcast.publish(PUBSUB_CHANNEL, f'updatevotes|{left}|{right}')
+        await redis.set(keys.last_time_publish(), "", ex=PUB_MIN_INTERVAL)  # set empty value, only cares about expiry
+        return vote
+
     if session_string is None:
         return JSONResponse({"error": "Missing session cookie"}, status_code=400)
     voter = await check_identity(session_string, keys)
@@ -412,10 +427,17 @@ async def update_state(new_state: int, keys: Keys):
 
 
 @app.get("/votes")
-async def get_current_votes(keys: WaifuJamKeysDep, force: bool = False):
+async def get_current_votes(keys: WaifuJamKeysDep, force: bool = False, stage: int = None):
     if not force:
-        print(await redis.hgetall(keys.live_votes_key()))
-        return JSONResponse(await redis.hgetall(keys.live_votes_key()))
+        all_keys = await redis.hgetall(keys.live_votes_key())
+        if stage is None:
+            print(all_keys)
+            return JSONResponse(all_keys)
+
+        return JSONResponse({
+            f"{stage}:0": all_keys.get(f"{stage}:0", "0"),
+            f"{stage}:1": all_keys.get(f"{stage}:1", "0")
+        })
 
 
 @app.get("/maps")
