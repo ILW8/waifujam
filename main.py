@@ -372,10 +372,15 @@ async def get_current_state(keys: WaifuJamKeysDep):
 
 
 @app.post("/state")
-async def get_current_state(new_state: Annotated[str, Body(embed=True)], keys: WaifuJamKeysDep):
-    await redis.set(keys.state_key(), new_state)
-    state = await redis.get(keys.state_key())
+async def get_current_state(new_state: Annotated[int, Body(embed=True)], keys: WaifuJamKeysDep):
+    state = await update_state(new_state, keys)
     return JSONResponse({"new_state": state})
+
+
+async def update_state(new_state: int, keys: Keys):
+    await redis.set(keys.state_key(), new_state)
+    await broadcast.publish(PUBSUB_CHANNEL, f'newstate|{new_state}')
+    return await redis.get(keys.state_key())
 
 
 @app.get("/votes")
