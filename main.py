@@ -411,9 +411,10 @@ async def update_state(new_state: int, keys: Keys):
 
 
 @app.get("/votes")
-async def get_current_votes(keys: WaifuJamKeysDep):
-    print(await redis.hgetall(keys.live_votes_key()))
-    return JSONResponse(await redis.hgetall(keys.live_votes_key()))
+async def get_current_votes(keys: WaifuJamKeysDep, force: bool = False):
+    if not force:
+        print(await redis.hgetall(keys.live_votes_key()))
+        return JSONResponse(await redis.hgetall(keys.live_votes_key()))
 
 
 @app.get("/maps")

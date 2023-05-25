@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <title>Hello Mars</title>
+    <meta name="description" content="Hello Mars">
+    <meta name="author" content="Carlos Roso">
+
+    <link rel="stylesheet" href="styles.css">
+    <script src="reconnecting-websockets.min.js"></script>
+</head>
+
+<body>
+<div>
+<video width="250" src="https://btmc.ams3.cdn.digitaloceanspaces.com/video1.mp4" controls autoplay> </video>
+<button id="vote-left">vote left</button>
+<p>Votes: <span id="votes-left">0</span></p>
+</div>
+<hr>
+<div>
+<video width="250" src="https://btmc.ams3.cdn.digitaloceanspaces.com/video2.mp4" controls autoplay> </video>
+<button id="vote-right">vote right</button>
+<p>Votes: <span id="votes-right" class="countup" data-newval="0">0</span></p>
+</div>
+
+<script>
+const animationDuration = 500;  // in ms
+
+const frameDuration = 1000 / 60;
+const totalFrames = Math.round( animationDuration / frameDuration );
+const easeOutQuad = t => t * ( 2 - t );
+
+const animateCountUp = el => {
+	let frame = 0;
+    const startVal = parseInt(el.innerText);
+	const countTo = parseInt( el.dataset.newval, 10 );
+	const counter = setInterval( () => {
+		frame++;
+		const progress = easeOutQuad( frame / totalFrames );
+		const currentCount = Math.round( (countTo - startVal) * progress ) + startVal;
+
+		if ( parseInt( el.innerText, 10 ) !== currentCount ) {
+			el.innerHTML = currentCount;
+		}
+
+		if ( frame === totalFrames ) {
+			clearInterval( counter );
+		}
+	}, frameDuration );
+};
+</script>
+<script src="vote.js"></script>
+</body>
+</html>
