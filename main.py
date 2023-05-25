@@ -11,7 +11,7 @@ from typing import Annotated, Optional
 from redis import asyncio as aioredis
 from broadcaster import Broadcast
 
-from fastapi import FastAPI, WebSocket, Depends, BackgroundTasks, Cookie
+from fastapi import FastAPI, WebSocket, Depends, BackgroundTasks, Cookie, Body
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import UniqueConstraint, Column
@@ -46,14 +46,17 @@ CORS_ORIGINS = [
     "http://127.0.0.1:8080",
 ]
 STAGE_MAPPINGS = {
-    0: {"section": 0, "maps": [0, 1]},
-    1: {"section": 0, "maps": [2, 3]},
-    2: {"section": 1, "maps": [0, 1]},
-    3: {"section": 1, "maps": [2, 3]},
-    4: {"section": 2, "maps": [0, 1]},
-    5: {"section": 2, "maps": [2, 3]},
-    6: {"section": 3, "maps": [0, 1]},
-    7: {"section": 3, "maps": [2, 3]},
+    0:  {"section": 0, "maps": [0, 1]},
+    1:  {"section": 0, "maps": [2, 3]},
+    2:  {"section": 1, "maps": [0, 1]},
+    3:  {"section": 1, "maps": [2, 3]},
+    4:  {"section": 2, "maps": [0, 1]},
+    5:  {"section": 2, "maps": [2, 3]},
+    6:  {"section": 3, "maps": [0, 1]},
+    7:  {"section": 3, "maps": [2, 3]},
+    8:  {"section": 3, "maps": [2, 3]},
+    9:  {"section": 3, "maps": [2, 3]},
+    10: {"section": 3, "maps": [2, 3]},
 }
 
 
@@ -162,7 +165,7 @@ class Vote(SQLModel, table=True):  # model of data stored in db
     twitch_user_id: int = Field(index=True)
     stage: int = Field(index=True)
     vote: int
-    datetime: Optional[datetime] = Field(
+    datetime: 'Optional[datetime.datetime]' = Field(
         sa_column=Column(DateTime(timezone=False), server_default=utcnow())
     )
 
@@ -366,6 +369,13 @@ async def get_current_state(keys: WaifuJamKeysDep):
         return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
 
     return state
+
+
+@app.post("/state")
+async def get_current_state(new_state: Annotated[str, Body(embed=True)], keys: WaifuJamKeysDep):
+    await redis.set(keys.state_key(), new_state)
+    state = await redis.get(keys.state_key())
+    return JSONResponse({"new_state": state})
 
 
 @app.get("/votes")
