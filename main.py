@@ -45,17 +45,43 @@ CORS_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
 ]
+MAPS_META = {
+    0: {
+        "title": "soft whisper",
+        "videos": {
+            0: "https://example.com/v0s0",
+            1: "https://example.com/v0s0",
+            2: "https://example.com/v0s2"
+        }
+    },
+    1: {
+        "title": "somber rain",
+        "videos": {
+            0: "https://example.com/v1s0",
+            1: "https://example.com/v1s1",
+            2: "https://example.com/v1s2"
+        }
+    },
+    2: {
+        "title": "vibrant hill",
+        "videos": {
+            0: "https://example.com/v2s0",
+            1: "https://example.com/v2s1",
+            2: "https://example.com/v2s2"
+        }
+    },
+}
 STAGE_MAPPINGS = {
-    0:  {"section": 0, "maps": [0, 1]},
-    1:  {"section": 0, "maps": [2, 3]},
-    2:  {"section": 1, "maps": [0, 1]},
-    3:  {"section": 1, "maps": [2, 3]},
-    4:  {"section": 2, "maps": [0, 1]},
-    5:  {"section": 2, "maps": [2, 3]},
-    6:  {"section": 3, "maps": [0, 1]},
-    7:  {"section": 3, "maps": [2, 3]},
-    8:  {"section": 3, "maps": [2, 3]},
-    9:  {"section": 3, "maps": [2, 3]},
+    0: {"section": 0, "maps": [0, 1]},
+    1: {"section": 0, "maps": [2, 3]},
+    2: {"section": 1, "maps": [0, 1]},
+    3: {"section": 1, "maps": [2, 3]},
+    4: {"section": 2, "maps": [0, 1]},
+    5: {"section": 2, "maps": [2, 3]},
+    6: {"section": 3, "maps": [0, 1]},
+    7: {"section": 3, "maps": [2, 3]},
+    8: {"section": 3, "maps": [2, 3]},
+    9: {"section": 3, "maps": [2, 3]},
     10: {"section": 3, "maps": [2, 3]},
 }
 
@@ -388,6 +414,11 @@ async def update_state(new_state: int, keys: Keys):
 async def get_current_votes(keys: WaifuJamKeysDep):
     print(await redis.hgetall(keys.live_votes_key()))
     return JSONResponse(await redis.hgetall(keys.live_votes_key()))
+
+
+@app.get("/maps")
+async def get_maps():
+    return JSONResponse(MAPS_META)
 
 
 @app.websocket("/ws")
