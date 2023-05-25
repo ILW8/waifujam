@@ -280,7 +280,7 @@ async def update_redis_votes(vote: Vote, keys: Keys):
     if do_not_publish is not None:
         return
     votes = await redis.hgetall(keys.live_votes_key())
-    left, right = votes[f"{vote.stage}:0"], votes[f"{vote.stage}:1"]
+    left, right = votes.get(f"{vote.stage}:0", 0), votes.get(f"{vote.stage}:1", 0)
     # print("publishing")
     await broadcast.publish(PUBSUB_CHANNEL, f'updatevotes|{left}|{right}')
     await redis.set(keys.last_time_publish(), "", ex=PUB_MIN_INTERVAL)  # set empty value, only cares about expiry
