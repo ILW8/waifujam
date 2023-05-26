@@ -6,10 +6,10 @@ import os
 import random
 import signal
 import urllib.parse
+import uuid
 from typing import Annotated, Optional
 
-from fastapi.exceptions import RequestValidationError
-from fastapi.params import Query, Path
+from fastapi.params import Path
 from redis import asyncio as aioredis
 from broadcaster import Broadcast
 
@@ -37,7 +37,7 @@ load_dotenv()
 # ======== constants ========
 
 
-REDIS_ADDR = 'redis://127.0.0.1:6379'
+REDIS_ADDR = os.getenv("REDISCONNSTRING")
 PUBSUB_CHANNEL = "waifujam"
 PUB_MIN_INTERVAL = 2
 SQLALCHEMY_DATABASE_URL = f'mysql+pymysql://{os.getenv("USERNAME")}:{os.getenv("PASSWORD")}' \
@@ -262,6 +262,7 @@ async def lifespan(_: FastAPI):
     # add broadcaster connect/disconnect
     print(f"[{datetime.datetime.now().isoformat()}] Connecting to broadcast backend...")
     await broadcast.connect()
+    await broadcast.publish(str(uuid.uuid4()), "connectivity check")  # raises exception if no auth
     print(f"[{datetime.datetime.now().isoformat()}] Connected.")
     yield
 
