@@ -466,12 +466,15 @@ async def set_round(round_id: int, matches: list[tuple], keys: Keys):
 @app.post("/round/{round_id}")
 async def get_round(
         round_id: Annotated[int, Path(ge=1, le=len(ROUNDS_MAPPING))],
-        matches: Annotated[list[tuple], Body(embed=True)],
+        matches: Annotated[list[tuple[int, int]], Body(embed=True)],
         keys: WaifuJamKeysDep
 ):
     if len(matches) != 8//(2**(round_id-1)):
         # raise RequestValidationError()
-        return JSONResponse({"error": f"unexpected number of matches: {len(matches)}, expected: {8//(2**(round_id-1))}"}, status_code=400)
+        return JSONResponse(
+            {"error": f"unexpected number of matches: {len(matches)}, expected: {8//(2**(round_id-1))}"},
+            status_code=400
+        )
     print(round_id)
     print(matches)
     return JSONResponse(await set_round(round_id, matches, keys))
