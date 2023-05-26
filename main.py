@@ -48,40 +48,71 @@ CORS_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
 ]
-MAPS_META = {
-    0: {
-        "title": "soft whisper",
-        "videos": {
-            0: "https://example.com/v0s0",
-            1: "https://example.com/v0s0",
-            2: "https://example.com/v0s2"
-        }
-    },
-    1: {
-        "title": "somber rain",
-        "videos": {
-            0: "https://example.com/v1s0",
-            1: "https://example.com/v1s1",
-            2: "https://example.com/v1s2"
-        }
-    },
-    2: {
-        "title": "vibrant hill",
-        "videos": {
-            0: "https://example.com/v2s0",
-            1: "https://example.com/v2s1",
-            2: "https://example.com/v2s2"
-        }
-    },
-    3: {
-        "title": "sad trombone",
-        "videos": {
-            0: "https://example.com/v3s0",
-            1: "https://example.com/v3s1",
-            2: "https://example.com/v3s2"
-        }
-    },
-}
+MAPS_META = {0: {'title': 'import civilian',
+                 'videos': {0: 'https://example.com/v0s0',
+                            1: 'https://example.com/v0s0',
+                            2: 'https://example.com/v0s2'}},
+             1: {'title': 'sanctuary tube',
+                 'videos': {0: 'https://example.com/v1s0',
+                            1: 'https://example.com/v1s0',
+                            2: 'https://example.com/v1s2'}},
+             2: {'title': 'cancer repeat',
+                 'videos': {0: 'https://example.com/v2s0',
+                            1: 'https://example.com/v2s0',
+                            2: 'https://example.com/v2s2'}},
+             3: {'title': 'photography stroke',
+                 'videos': {0: 'https://example.com/v3s0',
+                            1: 'https://example.com/v3s0',
+                            2: 'https://example.com/v3s2'}},
+             4: {'title': 'spit curtain',
+                 'videos': {0: 'https://example.com/v4s0',
+                            1: 'https://example.com/v4s0',
+                            2: 'https://example.com/v4s2'}},
+             5: {'title': 'merit slump',
+                 'videos': {0: 'https://example.com/v5s0',
+                            1: 'https://example.com/v5s0',
+                            2: 'https://example.com/v5s2'}},
+             6: {'title': 'speculate care',
+                 'videos': {0: 'https://example.com/v6s0',
+                            1: 'https://example.com/v6s0',
+                            2: 'https://example.com/v6s2'}},
+             7: {'title': 'slam drink',
+                 'videos': {0: 'https://example.com/v7s0',
+                            1: 'https://example.com/v7s0',
+                            2: 'https://example.com/v7s2'}},
+             8: {'title': 'motorist braid',
+                 'videos': {0: 'https://example.com/v8s0',
+                            1: 'https://example.com/v8s0',
+                            2: 'https://example.com/v8s2'}},
+             9: {'title': 'density overview',
+                 'videos': {0: 'https://example.com/v9s0',
+                            1: 'https://example.com/v9s0',
+                            2: 'https://example.com/v9s2'}},
+             10: {'title': 'cheque habitat',
+                  'videos': {0: 'https://example.com/v10s0',
+                             1: 'https://example.com/v10s0',
+                             2: 'https://example.com/v10s2'}},
+             11: {'title': 'extort concession',
+                  'videos': {0: 'https://example.com/v11s0',
+                             1: 'https://example.com/v11s0',
+                             2: 'https://example.com/v11s2'}},
+             12: {'title': 'stop coerce',
+                  'videos': {0: 'https://example.com/v12s0',
+                             1: 'https://example.com/v12s0',
+                             2: 'https://example.com/v12s2'}},
+             13: {'title': 'wardrobe stake',
+                  'videos': {0: 'https://example.com/v13s0',
+                             1: 'https://example.com/v13s0',
+                             2: 'https://example.com/v13s2'}},
+             14: {'title': 'performer tough',
+                  'videos': {0: 'https://example.com/v14s0',
+                             1: 'https://example.com/v14s0',
+                             2: 'https://example.com/v14s2'}},
+             15: {'title': 'television departure',
+                  'videos': {0: 'https://example.com/v15s0',
+                             1: 'https://example.com/v15s0',
+                             2: 'https://example.com/v15s2'}}}
+
 STAGE_MAPPINGS = {
     0: {"section": 0, "maps": [0, 1]},
     1: {"section": 0, "maps": [2, 3]},
@@ -110,7 +141,8 @@ class utcnow(expression.FunctionElement):
     type = DateTime()
 
 
-@compiles(utcnow, 'mysql')
+@compiles(utcnow,
+          'mysql')
 def mysql_utcnow(element, compiler, **kw):
     return "GETUTCDATE()"
 

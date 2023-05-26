@@ -62,11 +62,13 @@
 
 <template id="round-edit-template">
     <label for="match-map-left">Match <span>?</span>: </label>
-    <select name="match-map-left" id="match-map-left">
+    <select name="match-map-left" id="match-map-left" data-prev="-1">
+<!--        <option value="-1" selected>&#45;&#45;&#45;&#45;</option>-->
         <!--    js will populate this list    -->
     </select>
     <label for="match-map-right"></label>
-    <select name="match-map-right" id="match-map-right">
+    <select name="match-map-right" id="match-map-right" data-prev="-1">
+<!--        <option value="-1" selected>&#45;&#45;&#45;&#45;</option>-->
         <!--    js will populate this list    -->
     </select>
     <br>

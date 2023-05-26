@@ -15,6 +15,33 @@ const roundsEditorSubmitBtn = document.getElementById("submit-round");
 // const matchEditorMapLeft = document.getElementById("match-map-left");
 // const matchEditorMapRight = document.getElementById("match-map-right");
 
+
+function removeOptionsFromOthers(event) {
+    // // console.log(event.target);
+    // console.log(event.target.dataset.prev);
+    // roundsEditorContainer.querySelectorAll("select")
+    //     .forEach(selectElem => {
+    //         if (selectElem === event.target) return;
+    //
+    //         const a = Array.prototype.filter.call(event.target.querySelectorAll("option"), node => {
+    //             return node.value === event.target.dataset.prev;
+    //         })
+    //         console.log(a.length);
+    //
+    //         // don't remove the ---- option
+    //         if (selectElem.value === "-1") return;
+    //
+    //         for (let i = 0; i < selectElem.length; i++) {
+    //             if (selectElem.options[i].value === event.target.value) {
+    //                 // console.log(`removing ${selectElem.options[i].text}`)
+    //                 selectElem.remove(i);
+    //                 return;
+    //             }
+    //         }
+    //     })
+}
+
+
 // the order things are being loaded should guarantee that we have rounds information
 roundsEditorSelect.addEventListener('change', () => {
     roundsEditorContainer.replaceChildren();
@@ -27,7 +54,7 @@ roundsEditorSelect.addEventListener('change', () => {
     for (let matchIndex = 0; matchIndex < matchesCount; matchIndex++) {
         const roundEditorTemplate = document.getElementById("round-edit-template");
 
-        console.log(rounds);
+        // console.log(rounds);
 
         let mapLeft, mapRight;
         if (matchIndex < rounds[roundsEditorSelect.value].matches.length) {
@@ -36,6 +63,9 @@ roundsEditorSelect.addEventListener('change', () => {
         // console.log(mapLeft, mapRight);
 
         const clone = roundEditorTemplate.content.cloneNode(true);
+        clone.querySelectorAll("select").forEach(selectElem => {
+            selectElem.addEventListener('change', removeOptionsFromOthers);
+        })
         clone.querySelectorAll("span")[0].innerText = matchIndex
         let selectLeft, selectRight;
         [selectLeft, selectRight] = clone.querySelectorAll("select");
@@ -43,6 +73,7 @@ roundsEditorSelect.addEventListener('change', () => {
         selectLeft.id = selectLeft.id + matchIndex;
         selectRight.id = selectRight.id + matchIndex;
         roundsEditorContainer.appendChild(clone);
+
 
         Object.keys(maps).forEach(mapId => {
             mapId = parseInt(mapId);
@@ -61,6 +92,10 @@ roundsEditorSelect.addEventListener('change', () => {
             }
         })
     }
+
+    roundsEditorContainer.querySelectorAll("select").forEach(selectElem => {
+        selectElem.dispatchEvent(new Event("change"));
+    })
 })
 
 roundsEditorSubmitBtn.addEventListener('click', () => {
