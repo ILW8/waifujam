@@ -15,15 +15,22 @@
 <hr>
 <p>Stage select</p>
 <p>Round visibility: <span id="currentVisibility">?</span></p>
-<label for="stage-input">Select stage: </label>
+<label for="stage-input">Select round: </label>
 <input id="stage-input"
+       type="number"
+       min="0"
+       max="4"
+       value="0"
+       width="32"/>
+<label for="match-input"> and match: </label>
+<input id="match-input"
        type="number"
        min="1"
        max="100"
        value="0"
        width="32"/>
-<button id="setStage">Set stage</button>
-<button id="hideRound">Hide round</button>
+<button id="setStage">Set stage and match</button>
+<button id="hideRound">Hide everything</button>
 
 
 <hr>

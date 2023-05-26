@@ -3,6 +3,7 @@ let socket;
 
 const setStageButton = document.getElementById('setStage');
 const stageInput = document.getElementById('stage-input')
+const matchInput = document.getElementById('match-input')
 const stageVisibility = document.getElementById('currentVisibility')
 const hideRoundButton = document.getElementById("hideRound");
 const showRoundButton = document.getElementById("showRound");
@@ -33,7 +34,7 @@ function doSetState(newState) {
 
 function setStage() {
     console.log(stageInput.value);
-    doSetState(stageInput.value);
+    doSetState(`${stageInput.value}:${matchInput.value}`);
 }
 
 setStageButton.addEventListener('click', setStage)

@@ -8,6 +8,8 @@ import signal
 import urllib.parse
 from typing import Annotated, Optional
 
+from fastapi.exceptions import RequestValidationError
+from fastapi.params import Query, Path
 from redis import asyncio as aioredis
 from broadcaster import Broadcast
 
@@ -86,6 +88,14 @@ STAGE_MAPPINGS = {
     10: {"section": 3, "maps": [2, 3]},
 }
 
+ROUNDS_MAPPING = {
+    0: {},  # intro
+    1: {"matches": []},  # QF
+    2: {"matches": []},  # SM
+    3: {"matches": []},  # F
+    4: {"matches": []},  # GF
+}
+
 
 # noinspection PyPep8Naming
 class utcnow(expression.FunctionElement):
@@ -141,6 +151,10 @@ class Keys:
     @prefixed_key
     def last_time_publish(self) -> str:
         return f'pub_ts'
+
+    @prefixed_key
+    def rounds(self) -> str:
+        return f"rounds"
 
 
 class RedisConfig(BaseSettings):
@@ -399,9 +413,9 @@ async def vote_endpoint(vote: VoteRequest,
     return vote
 
 
-@app.get("/stages")
-async def get_stages():
-    return STAGE_MAPPINGS
+# @app.get("/stages")
+# async def get_stages():
+#     return STAGE_MAPPINGS
 
 
 @app.get("/state")
@@ -409,21 +423,20 @@ async def get_current_state(keys: WaifuJamKeysDep):
     state = await redis.get(keys.state_key())
     if state is None:
         return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
-    state = int(state)
 
     return JSONResponse({"state": state})
 
 
 @app.post("/state")
-async def get_current_state(new_state: Annotated[int, Body(embed=True)], keys: WaifuJamKeysDep):
+async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:\d+$")], keys: WaifuJamKeysDep):
     state = await update_state(new_state, keys)
     return JSONResponse({"new_state": state})
 
 
-async def update_state(new_state: int, keys: Keys):
+async def update_state(new_state: str, keys: Keys):
     await redis.set(keys.state_key(), new_state)
     await broadcast.publish(PUBSUB_CHANNEL, f'newstate|{new_state}')
-    return int(await redis.get(keys.state_key()))
+    return await redis.get(keys.state_key())
 
 
 @app.get("/votes")
@@ -438,6 +451,30 @@ async def get_current_votes(keys: WaifuJamKeysDep, force: bool = False, stage: i
             f"{stage}:0": all_keys.get(f"{stage}:0", "0"),
             f"{stage}:1": all_keys.get(f"{stage}:1", "0")
         })
+
+
+@app.get("/round/{round_id}")
+async def get_round(round_id: Annotated[int, Path(ge=0, le=len(ROUNDS_MAPPING))]):
+    return JSONResponse(ROUNDS_MAPPING[round_id])
+
+
+async def set_round(round_id: int, matches: list[tuple], keys: Keys):
+    await redis.set(f"{keys.rounds()}:{round_id}", json.dumps(matches))
+    return await redis.get(f"{keys.rounds()}:{round_id}")
+
+
+@app.post("/round/{round_id}")
+async def get_round(
+        round_id: Annotated[int, Path(ge=1, le=len(ROUNDS_MAPPING))],
+        matches: Annotated[list[tuple], Body(embed=True)],
+        keys: WaifuJamKeysDep
+):
+    if len(matches) != 8//(2**(round_id-1)):
+        # raise RequestValidationError()
+        return JSONResponse({"error": f"unexpected number of matches: {len(matches)}, expected: {8//(2**(round_id-1))}"}, status_code=400)
+    print(round_id)
+    print(matches)
+    return JSONResponse(await set_round(round_id, matches, keys))
 
 
 @app.get("/maps")
