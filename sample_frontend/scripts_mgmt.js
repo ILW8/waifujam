@@ -6,6 +6,7 @@ let state;
 const setStageButton = document.getElementById('setStage');
 const stageInput = document.getElementById('stage-input')
 const matchInput = document.getElementById('match-input')
+const voteStatusInput = document.getElementById("match-state");
 const stageVisibility = document.getElementById('currentVisibility')
 const hideRoundButton = document.getElementById("hideRound");
 const showRoundButton = document.getElementById("showRound");
@@ -173,7 +174,7 @@ function doSetState(newState) {
         },
     }).then(resp => resp.json()).then(data => {
         console.log("Set new state: " + JSON.stringify(data))
-        if (data["new_state"].split(":").length === 2) {  // is this really necessary...
+        if (data["new_state"].split(":").length === 3) {  // is this really necessary...
             stageVisibility.innerText = data["new_state"].split(":")[1] === "-1" ? "hidden" : data["new_state"];
         }
         state = data["new_state"];
@@ -184,7 +185,7 @@ function doSetState(newState) {
 
 function setStage() {
     // console.log(stageInput.value);
-    doSetState(`${stageInput.value}:${matchInput.value}`);
+    doSetState(`${stageInput.value}:${matchInput.value}:${voteStatusInput.value}`);
 }
 
 setStageButton.addEventListener('click', setStage)
@@ -227,14 +228,14 @@ function loadState() {
         .then(data => {
 
             // visibility
-            if (data["state"].split(":").length !== 2) {
+            if (data["state"].split(":").length !== 3) {
                 console.log("expected `:`-separated numbers, got: " + data["state"]);
                 return;
             }
             // console.log(`state: ${data["state"]}`)
             state = data["state"];
-            let round, match;
-            [round, match] = state.split(":")
+            let round, match, status;
+            [round, match, status] = state.split(":")
             stageVisibility.innerText = match === "-1" ? "hidden" : state;
 
             // stage select
@@ -242,6 +243,10 @@ function loadState() {
             stageInput.dispatchEvent(new Event('change'));
             matchInput.value = match;
             matchInput.dispatchEvent(new Event('change'));
+
+            // visibility select
+            voteStatusInput.value = status;
+            voteStatusInput.dispatchEvent(new Event("change"));
 
             // rounds editor
             roundsEditorSelect.value = round;

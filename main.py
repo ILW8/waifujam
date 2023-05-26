@@ -468,7 +468,7 @@ async def get_current_state(keys: WaifuJamKeysDep):
 
 
 @app.post("/state")
-async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:-?\d+$")], keys: WaifuJamKeysDep):
+async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:-?\d+:\d$")], keys: WaifuJamKeysDep):
     state = await update_state(new_state, keys)
     return JSONResponse({"new_state": state})
 
