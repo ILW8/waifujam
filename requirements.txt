@@ -10,3 +10,4 @@ SQLAlchemy~=1.4.41
 PyMySQL~=1.0.3
 websockets~=11.0.3
 starlette~=0.27.0
+asyncio_redis~=0.16.0
