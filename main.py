@@ -415,6 +415,7 @@ async def vote_endpoint(vote: VoteRequest,
         await redis.set(keys.last_time_publish(), "", ex=PUB_MIN_INTERVAL)  # set empty value, only cares about expiry
         return vote
 
+    # TODO: !!!!!!!!!!!!!!!!!!!!!!!!!! UPDATE THIS TO USE NEW STATE :-SEPARATED TRIPLET !!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if session_string is None:
         return JSONResponse({"error": "Missing session cookie"}, status_code=400)
     voter = await check_identity(session_string, keys)
