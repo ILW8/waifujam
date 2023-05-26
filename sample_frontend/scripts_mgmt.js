@@ -17,28 +17,51 @@ const roundsEditorSubmitBtn = document.getElementById("submit-round");
 
 
 function removeOptionsFromOthers(event) {
-    // // console.log(event.target);
-    // console.log(event.target.dataset.prev);
-    // roundsEditorContainer.querySelectorAll("select")
-    //     .forEach(selectElem => {
-    //         if (selectElem === event.target) return;
-    //
-    //         const a = Array.prototype.filter.call(event.target.querySelectorAll("option"), node => {
-    //             return node.value === event.target.dataset.prev;
-    //         })
-    //         console.log(a.length);
-    //
-    //         // don't remove the ---- option
-    //         if (selectElem.value === "-1") return;
-    //
-    //         for (let i = 0; i < selectElem.length; i++) {
-    //             if (selectElem.options[i].value === event.target.value) {
-    //                 // console.log(`removing ${selectElem.options[i].text}`)
-    //                 selectElem.remove(i);
-    //                 return;
-    //             }
-    //         }
-    //     })
+    // console.log(event.target);
+    console.log(event.target.dataset.prev);
+    let prevStillInUse = false;
+    roundsEditorContainer.querySelectorAll("select")
+        .forEach(selectElem => {
+            // if (selectElem === event.target) return;
+            //
+            // const a = Array.prototype.filter.call(event.target.querySelectorAll("option"), node => {
+            //     return node.value === event.target.dataset.prev;
+            // })
+            // console.log(a.length);
+            //
+            // // don't remove the ---- option
+            // if (selectElem.value === "-1") return;
+
+            // check if prev still in use
+            if (selectElem.value === event.target.dataset.prev) {
+                prevStillInUse = true;
+            }
+
+            // add * to new selected option
+            for (let i = 0; i < selectElem.length; i++) {
+                if (selectElem.options[i].value === event.target.value) {
+                    // console.log(`removing ${selectElem.options[i].text}`)
+                    // selectElem.remove(i);
+                    selectElem.options[i].text = selectElem.options[i].text.replace(/ \*$/, '') + " *";
+                    break;
+                }
+            }
+        })
+
+    if (!prevStillInUse) {
+        roundsEditorContainer.querySelectorAll("select").forEach(selectElem => {
+            for (let i = 0; i < selectElem.length; i++) {
+                if (selectElem.options[i].value === event.target.dataset.prev) {
+                    // console.log(`removing ${selectElem.options[i].text}`)
+                    // selectElem.remove(i);
+                    selectElem.options[i].text = selectElem.options[i].text.replace(/ \*$/, '');
+                    return;
+                }
+            }
+        })
+    }
+
+    event.target.dataset.prev = event.target.value;
 }
 
 
@@ -154,6 +177,8 @@ function doSetState(newState) {
             stageVisibility.innerText = data["new_state"].split(":")[1] === "-1" ? "hidden" : data["new_state"];
         }
         state = data["new_state"];
+        roundsEditorSelect.value = data["new_state"].split(":")[0];
+        roundsEditorSelect.dispatchEvent(new Event('change'));
     })
 }
 
