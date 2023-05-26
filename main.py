@@ -73,6 +73,14 @@ MAPS_META = {
             2: "https://example.com/v2s2"
         }
     },
+    3: {
+        "title": "sad trombone",
+        "videos": {
+            0: "https://example.com/v3s0",
+            1: "https://example.com/v3s1",
+            2: "https://example.com/v3s2"
+        }
+    },
 }
 STAGE_MAPPINGS = {
     0: {"section": 0, "maps": [0, 1]},
@@ -479,14 +487,18 @@ async def update_round(
         matches: Annotated[list[tuple[int, int]], Body(embed=True)],
         keys: WaifuJamKeysDep
 ):
-    if len(matches) != 8//(2**(round_id-1)):
+    if len(matches) != 8 // (2 ** (round_id - 1)):
         # raise RequestValidationError()
         return JSONResponse(
-            {"error": f"unexpected number of matches: {len(matches)}, expected: {8//(2**(round_id-1))}"},
-            status_code=400
-        )
-    print(round_id)
-    print(matches)
+            {"error": f"unexpected number of matches: {len(matches)}, expected: {8 // (2 ** (round_id - 1))}"},
+            status_code=400)
+    for match_id, match in enumerate(matches):
+        if match[0] == match[1]:
+            return JSONResponse(
+                {"error": f"Cannot have a map face against itself (match {match_id}: {match[0]} vs {match[1]})"},
+                status_code=400)
+    # print(round_id)
+    # print(matches)
     return JSONResponse(await set_round(round_id, matches, keys))
 
 

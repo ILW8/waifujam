@@ -9,11 +9,17 @@
 
     <link rel="stylesheet" href="styles.css">
     <script src="reconnecting-websockets.min.js"></script>
+    <style>
+        option {
+            min-width: 96px;
+            padding: 2px 8px;
+        }
+    </style>
 </head>
 
 <body>
 <hr>
-<p>Stage select</p>
+<h3>Stage select</h3>
 <p>Round visibility: <span id="currentVisibility">?</span></p>
 <label for="stage-input">Select round: </label>
 <input id="stage-input"
@@ -25,15 +31,50 @@
 <label for="match-input"> and match: </label>
 <input id="match-input"
        type="number"
-       min="1"
-       max="100"
+       min="-1"
+       max="0"
        value="0"
        width="32"/>
 <button id="setStage">Set stage and match</button>
-<button id="hideRound">Hide everything</button>
+<button id="hideRound">Hide everything (set match to -1)</button>
 
 
 <hr>
+<h3>Round settings</h3>
+<label for="rounds-select">Select a round: </label>
+<select name="rounds" id="rounds-select" style="min-width: 32px">
+    <option value="0">0</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+</select>
+
+<br>
+<!--<label for="matches-select">Edit a match: </label>-->
+<!--<br>-->
+<!--<select name="matches" id="matches-select" size="4">-->
+<!--    <option value="0">Match 0</option>-->
+<!--    <option value="1">Match 1</option>-->
+<!--    <option value="2">Match 2</option>-->
+<!--    <option value="3">Match 3</option>-->
+<!--</select>-->
+
+<template id="round-edit-template">
+    <label for="match-map-left">Match <span>?</span>: </label>
+    <select name="match-map-left" id="match-map-left">
+        <!--    js will populate this list    -->
+    </select>
+    <label for="match-map-right"></label>
+    <select name="match-map-right" id="match-map-right">
+        <!--    js will populate this list    -->
+    </select>
+    <br>
+</template>
+<div id="editor-container">
+
+</div>
+<button id="submit-round">Submit round edit</button>
 
 <script src="scripts_mgmt.js"></script>
 </body>
