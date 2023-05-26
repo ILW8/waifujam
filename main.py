@@ -428,7 +428,7 @@ async def get_current_state(keys: WaifuJamKeysDep):
 
 
 @app.post("/state")
-async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:\d+$")], keys: WaifuJamKeysDep):
+async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:-?\d+$")], keys: WaifuJamKeysDep):
     state = await update_state(new_state, keys)
     return JSONResponse({"new_state": state})
 
@@ -453,18 +453,28 @@ async def get_current_votes(keys: WaifuJamKeysDep, force: bool = False, stage: i
         })
 
 
+@app.get("/rounds")
+async def get_rounds(keys: WaifuJamKeysDep):
+    rounds = ROUNDS_MAPPING.copy()
+    rounds_redis = await redis.hgetall(keys.rounds())
+    for key, json_str in rounds_redis.items():
+        rounds[int(key)] = {"matches": json.loads(json_str)}
+    print(rounds)
+    return JSONResponse(rounds)
+
+
 @app.get("/round/{round_id}")
-async def get_round(round_id: Annotated[int, Path(ge=0, le=len(ROUNDS_MAPPING))]):
-    return JSONResponse(ROUNDS_MAPPING[round_id])
+async def get_round(round_id: Annotated[int, Path(ge=0, le=len(ROUNDS_MAPPING))], keys: WaifuJamKeysDep):
+    return JSONResponse(json.loads(await redis.hget(keys.rounds(), round_id)))
 
 
 async def set_round(round_id: int, matches: list[tuple], keys: Keys):
-    await redis.set(f"{keys.rounds()}:{round_id}", json.dumps(matches))
-    return await redis.get(f"{keys.rounds()}:{round_id}")
+    await redis.hset(keys.rounds(), round_id, json.dumps(matches))
+    return await redis.hget(keys.rounds(), round_id)
 
 
 @app.post("/round/{round_id}")
-async def get_round(
+async def update_round(
         round_id: Annotated[int, Path(ge=1, le=len(ROUNDS_MAPPING))],
         matches: Annotated[list[tuple[int, int]], Body(embed=True)],
         keys: WaifuJamKeysDep
