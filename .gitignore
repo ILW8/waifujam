@@ -161,3 +161,4 @@ cython_debug/
 #.idea/
 
 /sample_frontend/node_modules/
+/redis_conf/redis.conf
