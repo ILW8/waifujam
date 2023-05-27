@@ -413,7 +413,7 @@ async def vote_endpoint(vote: VoteRequest,
         return already_voted_resp
 
     # insert into db, fail if vote already exists
-    db_vote = Vote(twitch_user_id=voter["id"], round=vote.round, vote=vote.vote)
+    db_vote = Vote(twitch_user_id=voter["id"], round=vote.round, match=vote.match, vote=vote.vote)
     session.add(db_vote)
     try:
         session.commit()
@@ -429,7 +429,7 @@ async def vote_endpoint(vote: VoteRequest,
                                               f"in stage {res.round}:{res.match}"}, status_code=409)
 
         # otherwise, different integrity error
-        return JSONResponse({"error": "IntegrityError"}, status_code=500)
+        return JSONResponse({"error": "Unexpected IntegrityError"}, status_code=500)
     background_tasks.add_task(update_redis_votes, db_vote, keys)
     return vote
 
