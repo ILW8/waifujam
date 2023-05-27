@@ -49,6 +49,7 @@ CORS_ORIGINS = [
     "http://127.0.0.1:8080",
     "http://btmc.live",
     "https://btmc.live",
+    "https://btmc.ams3.digitaloceanspaces.com",
 ]
 MAPS_META = {0: {'title': 'appropriate especially',
                  'videos': {0: 'https://example.com/v0s0',
