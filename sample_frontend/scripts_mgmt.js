@@ -3,12 +3,9 @@ let maps;
 let socket;
 let state;
 
-const ENDPOINT_BASE = "127.0.0.1:8000"
-// const ENDPOINT_BASE = "127.0.0.1:8000"
-const API_ENDPOINT = `http://${ENDPOINT_BASE}/`
-// const API_ENDPOINT = `http://${ENDPOINT_BASE}/`
-const WEBSOCKET_ENDPOINT = `ws://${ENDPOINT_BASE}/ws`
-// const WEBSOCKET_ENDPOINT = `ws://${ENDPOINT_BASE}/ws`
+const ENDPOINT_BASE = "waifujam.btmc.live"
+const API_ENDPOINT = `https://${ENDPOINT_BASE}/`
+const WEBSOCKET_ENDPOINT = `wss://${ENDPOINT_BASE}/ws`
 
 const setStageButton = document.getElementById('setStage');
 const stageInput = document.getElementById('stage-input')
