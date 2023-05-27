@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from sqlalchemy import UniqueConstraint, Column
+from sqlalchemy import UniqueConstraint, Column, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import expression
 from sqlalchemy.ext.compiler import compiles
@@ -199,7 +199,8 @@ class RedisConfig(BaseSettings):
 
 class VoteRequest(BaseModel):  # comes in with a request
     vote: int = Field(ge=0, le=1)  # 0 or 1 (left or right)
-    stage: int  # to index into the predefined mapping
+    round: int = Field(ge=1, le=4)
+    match: int
 
 
 class TwitchSessionData(BaseModel):
@@ -235,14 +236,15 @@ class TwitchSessionData(BaseModel):
 
 
 class Vote(SQLModel, table=True):  # model of data stored in db
-    __table_args__ = (UniqueConstraint("twitch_user_id", "stage", name="one_vote_per_stage_per_user"),)
+    __table_args__ = (UniqueConstraint("twitch_user_id", "round", "match", name="one_vote_per_stage_per_user"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     twitch_user_id: int = Field(index=True)
-    stage: int = Field(index=True)
+    round: int = Field(index=True)
+    match: int
     vote: int
-    datetime: 'Optional[datetime.datetime]' = Field(
-        sa_column=Column(DateTime(timezone=False), server_default=utcnow())
+    vote_time: 'Optional[datetime.datetime]' = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now())
     )
 
 
@@ -322,8 +324,8 @@ Server.handle_exit = handle_exit
 
 async def update_redis_votes(vote: Vote, keys: Keys):
     await asyncio.gather(
-        redis.sadd(f"{keys.live_votes_key()}:{vote.stage}", vote.twitch_user_id),
-        redis.hincrby(keys.live_votes_key(), f"{vote.stage}:{vote.vote}", 1),
+        redis.sadd(f"{keys.votes_key_prefix()}:{vote.round}:{vote.match}", vote.twitch_user_id),
+        redis.hincrby(keys.live_votes_key(), f"{vote.round}:{vote.match}:{vote.vote}", 1),
         # redis.publish(PUBSUB_CHANNEL, f'votes|{await redis.hget(keys.live_votes_key(), f"{vote.stage}:0")}'
         #                               f'|{await redis.hget(keys.live_votes_key(), f"{vote.stage}:1")}')
     )
@@ -331,7 +333,7 @@ async def update_redis_votes(vote: Vote, keys: Keys):
     if do_not_publish is not None:
         return
     votes = await redis.hgetall(keys.live_votes_key())
-    left, right = votes.get(f"{vote.stage}:0", 0), votes.get(f"{vote.stage}:1", 0)
+    left, right = votes.get(f"{vote.round}:{vote.match}:0", 0), votes.get(f"{vote.round}:{vote.match}:1", 0)
     # print("publishing")
     await broadcast.publish(PUBSUB_CHANNEL, f'updatevotes|{left}|{right}')
     await redis.set(keys.last_time_publish(), "", ex=PUB_MIN_INTERVAL)  # set empty value, only cares about expiry
@@ -427,13 +429,15 @@ async def vote_endpoint(vote: VoteRequest,
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
 
     # return JSONResponse(voter)
-    return JSONResponse({"username": voter.get("display_name")})
+    # return JSONResponse({"username": voter.get("display_name")})
 
     state = await redis.get(keys.state_key())
     if state is None:
         return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
-    if str(vote.stage) != state:  # str() because redis values are always strings
-        return JSONResponse({"error": f"currently active stage is {state}, tried voting for {vote.stage}"},
+    state_round, state_match, _ = state.split(":")
+    if vote.round != state_round or vote.match != state_match:
+        return JSONResponse({"error": f"currently active round:stage is {state_round}:{state_match}, "
+                                      f"tried voting for {vote.round}:{vote.match}"},
                             status_code=400)
 
     already_voted_resp = JSONResponse({"error": f"You have already voted for stage {state}"}, status_code=409)
@@ -441,7 +445,7 @@ async def vote_endpoint(vote: VoteRequest,
         return already_voted_resp
 
     # insert into db, fail if vote already exists
-    db_vote = Vote(twitch_user_id=voter["userid"], stage=vote.stage, vote=vote.vote)
+    db_vote = Vote(twitch_user_id=voter["userid"], round=vote.round, vote=vote.vote)
     session.add(db_vote)
     try:
         session.commit()
@@ -450,10 +454,11 @@ async def vote_endpoint(vote: VoteRequest,
         session.rollback()
         if "AlreadyExists" in str(e):  # dunno if ugly hack
             res = session.exec(select(Vote).where(Vote.twitch_user_id == db_vote.twitch_user_id,
-                                                  Vote.stage == db_vote.stage)).first()
+                                                  Vote.round == db_vote.round,
+                                                  Vote.match == db_vote.match)).first()
             if res is not None:  # vote on this stage by this user already exists
                 return JSONResponse({"error": f"twitch user {res.twitch_user_id} has already voted "
-                                              f"in stage {res.stage}"}, status_code=409)
+                                              f"in stage {res.round}:{res.match}"}, status_code=409)
 
         # otherwise, different integrity error
         return JSONResponse({"error": "IntegrityError"}, status_code=500)
@@ -488,18 +493,31 @@ async def send_new_state_with_data(new_state: str, keys: Keys):
     if int(state_round := new_state.split(":")[0]) == 0:
         return
     state_match_id = int(new_state.split(":")[1])
-    round_matches = json.loads(await redis.hget(keys.rounds(), state_round))
-    state_aux_data = json.dumps({
-        "left": {
-            "title": MAPS_META[round_matches[state_match_id][0]]["title"],
-            "currentVideo": MAPS_META[round_matches[state_match_id][0]]["videos"][state_match_id]
-        },
-        "right": {
-            "title": MAPS_META[round_matches[state_match_id][1]]["title"],
-            "currentVideo": MAPS_META[round_matches[state_match_id][1]]["videos"][state_match_id]
-        },
-    })
-    await broadcast.publish(PUBSUB_CHANNEL, f'newstatewithdata|{new_state}|{state_aux_data}')
+    try:
+        round_matches = json.loads(await redis.hget(keys.rounds(), state_round))
+    except TypeError:
+        round_matches = []
+    state_aux_data = {
+        "left": None,
+        "right": None,
+    }
+
+    try:
+        meta_index_left = round_matches[state_match_id][0]
+        meta_index_right = round_matches[state_match_id][1]
+
+        state_aux_data["left"] = {
+            "title": MAPS_META[meta_index_left]["title"],
+            "currentVideo": MAPS_META[meta_index_left]["videos"][state_match_id]
+        }
+        state_aux_data["right"] = {
+            "title": MAPS_META[meta_index_right]["title"],
+            "currentVideo": MAPS_META[meta_index_right]["videos"][state_match_id]
+        }
+    except IndexError:
+        pass
+
+    await broadcast.publish(PUBSUB_CHANNEL, f'newstatewithdata|{new_state}|{json.dumps(state_aux_data)}')
 
 
 async def update_state(new_state: str, keys: Keys, background_tasks: BackgroundTasks):
