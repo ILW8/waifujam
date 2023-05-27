@@ -442,7 +442,7 @@ async def vote_endpoint(vote: VoteRequest,
                             status_code=400)
 
     already_voted_resp = JSONResponse({"error": f"You have already voted for stage {state}"}, status_code=409)
-    if await redis.sismember(f"{keys.votes_key_prefix()}{state}", voter["id"]):
+    if await redis.sismember(f"{keys.votes_key_prefix()}:{vote.round}:{vote.match}", voter["id"]):
         return already_voted_resp
 
     # insert into db, fail if vote already exists
@@ -483,7 +483,7 @@ async def get_current_state(keys: WaifuJamKeysDep,
     has_voted = False
     if session_string is not None:
         voter = await check_identity(session_string)
-        if await redis.sismember(f"{keys.votes_key_prefix()}{state}", voter["id"]):
+        if await redis.sismember(f"{keys.votes_key_prefix()}:{state.split(':')[0]}:{state.split(':')[1]}", voter["id"]):
             has_voted = True
 
     resp_obj = {
