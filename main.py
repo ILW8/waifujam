@@ -544,7 +544,6 @@ async def send_new_state_with_data(new_state: str, keys: Keys):
 
 async def update_state(new_state: str, keys: Keys, background_tasks: BackgroundTasks):
     await redis.set(keys.state_key(), new_state)
-    await redis.set(keys.live_votes_key(), 0)
     await broadcast.publish(PUBSUB_CHANNEL, f'newstate|{new_state}')
     background_tasks.add_task(send_new_state_with_data, new_state, keys)
     return await redis.get(keys.state_key())
