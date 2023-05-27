@@ -35,7 +35,7 @@ from starlette.requests import Request
 from uvicorn.main import Server
 
 from dotenv import load_dotenv
-from websockets.exceptions import ConnectionClosedOK
+from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 
 load_dotenv()
 
@@ -636,4 +636,6 @@ async def ws_sender(websocket):
             except asyncio.TimeoutError:
                 pass
             except ConnectionClosedOK:
+                pass
+            except ConnectionClosedError:
                 pass
