@@ -42,11 +42,13 @@ PUBSUB_CHANNEL = "waifujam"
 PUB_MIN_INTERVAL = 2
 SQLALCHEMY_DATABASE_URL = f'mysql+pymysql://{os.getenv("USERNAME")}:{os.getenv("PASSWORD")}' \
                           f'@{os.getenv("HOST")}/{os.getenv("DATABASE")}?charset=utf8mb4&ssl=true'
-print(SQLALCHEMY_DATABASE_URL)
+# print(SQLALCHEMY_DATABASE_URL)
 CORS_ORIGINS = [
     "http://localhost",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "http://btmc.live",
+    "https://btmc.live",
 ]
 MAPS_META = {0: {'title': 'import civilian',
                  'videos': {0: 'https://example.com/v0s0',
@@ -276,7 +278,7 @@ broadcast = Broadcast(REDIS_ADDR)
 config = RedisConfig()
 redis = aioredis.from_url(config.redis_url, decode_responses=True)
 engine = create_engine(SQLALCHEMY_DATABASE_URL,
-                       echo=True,  # todo: remove this for prod
+                       # echo=True,
                        connect_args={
                            "ssl": {
                                "ca":
@@ -470,14 +472,35 @@ async def get_current_state(keys: WaifuJamKeysDep):
 
 
 @app.post("/state")
-async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:-?\d+:\d$")], keys: WaifuJamKeysDep):
-    state = await update_state(new_state, keys)
+async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:-?\d+:\d$")],
+                            keys: WaifuJamKeysDep,
+                            background_tasks: BackgroundTasks):
+    state = await update_state(new_state, keys, background_tasks)
     return JSONResponse({"new_state": state})
 
 
-async def update_state(new_state: str, keys: Keys):
+async def send_new_state_with_data(new_state: str, keys: Keys):
+    if int(state_round := new_state.split(":")[0]) == 0:
+        return
+    state_match_id = int(new_state.split(":")[1])
+    round_matches = json.loads(await redis.hget(keys.rounds(), state_round))
+    state_aux_data = json.dumps({
+        "left": {
+            "title": MAPS_META[round_matches[state_match_id][0]]["title"],
+            "currentVideo": MAPS_META[round_matches[state_match_id][0]]["videos"][state_match_id]
+        },
+        "right": {
+            "title": MAPS_META[round_matches[state_match_id][0]]["title"],
+            "currentVideo": MAPS_META[round_matches[state_match_id][0]]["videos"][state_match_id]
+        },
+    })
+    await broadcast.publish(PUBSUB_CHANNEL, f'newstatewithdata|{new_state}|{state_aux_data}')
+
+
+async def update_state(new_state: str, keys: Keys, background_tasks: BackgroundTasks):
     await redis.set(keys.state_key(), new_state)
     await broadcast.publish(PUBSUB_CHANNEL, f'newstate|{new_state}')
+    background_tasks.add_task(send_new_state_with_data, new_state, keys)
     return await redis.get(keys.state_key())
 
 
