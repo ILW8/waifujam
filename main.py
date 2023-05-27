@@ -479,9 +479,17 @@ async def get_current_state(keys: WaifuJamKeysDep,
     state = await redis.get(keys.state_key())
     if state is None:
         return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
+
+    has_voted = False
+    if session_string is not None:
+        voter = await check_identity(session_string)
+        if await redis.sismember(f"{keys.votes_key_prefix()}{state}", voter["id"]):
+            has_voted = True
+
     resp_obj = {
         "state": state,
-        "aux_data": await get_aux_state_data(state, keys)
+        "aux_data": await get_aux_state_data(state, keys),
+        "hasProbablyVoted": has_voted
     }
     return JSONResponse(resp_obj)
 
