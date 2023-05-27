@@ -407,7 +407,7 @@ async def vote_endpoint(vote: VoteRequest,
         return JSONResponse({"error": f"currently active round:stage is {state_round}:{state_match}, "
                                       f"tried voting for {vote.round}:{vote.match}"},
                             status_code=400)
-    return JSONResponse(voter)
+
     already_voted_resp = JSONResponse({"error": f"You have already voted for stage {state}"}, status_code=409)
     if await redis.sismember(f"{keys.votes_key_prefix()}{state}", voter["id"]):
         return already_voted_resp
