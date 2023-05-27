@@ -203,38 +203,6 @@ class VoteRequest(BaseModel):  # comes in with a request
     match: int
 
 
-class TwitchSessionData(BaseModel):
-    sample = {
-        'cookie': {
-            'originalMaxAge': None,
-            'expires': None,
-            'httpOnly': True,
-            'path': '/'
-        },
-        'passport': {  # dict['passport']['user']['data'][0]['id']
-            'user': {
-                'data': [
-                    {
-                        'id': '1234567890',
-                        'login': 'abcdefgh',
-                        'display_name': 'AbcdEfgh',
-                        'type': '',
-                        'broadcaster_type': '',
-                        'description': "hello world",
-                        'profile_image_url': 'https://static-cdn.jtvnw.net/jtv_user_pictures/'
-                                             'xxxxxxxxxxxxxxxxx.png',
-                        'offline_image_url': '',
-                        'view_count': 0,
-                        'email': 'xxxxxxxxxxxxxxxxx@example.com',
-                        'created_at': '1970-01-01T07:27:27Z'
-                    }
-                ],
-                'accessToken': 'xxxxxxxxxxxxxxxxx',
-                'refreshToken': 'xxxxxxxxxxxxxxxxx'}
-        }
-    }
-
-
 class Vote(SQLModel, table=True):  # model of data stored in db
     __table_args__ = (UniqueConstraint("twitch_user_id", "round", "match", name="one_vote_per_stage_per_user"),)
 
