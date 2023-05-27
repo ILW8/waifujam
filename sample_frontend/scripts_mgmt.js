@@ -3,11 +3,11 @@ let maps;
 let socket;
 let state;
 
-const ENDPOINT_BASE = "waifujam.btmc.live"
+const ENDPOINT_BASE = "127.0.0.1:8000"
 // const ENDPOINT_BASE = "127.0.0.1:8000"
-const API_ENDPOINT = `https://${ENDPOINT_BASE}/`
+const API_ENDPOINT = `http://${ENDPOINT_BASE}/`
 // const API_ENDPOINT = `http://${ENDPOINT_BASE}/`
-const WEBSOCKET_ENDPOINT = `wss://${ENDPOINT_BASE}/ws`
+const WEBSOCKET_ENDPOINT = `ws://${ENDPOINT_BASE}/ws`
 // const WEBSOCKET_ENDPOINT = `ws://${ENDPOINT_BASE}/ws`
 
 const setStageButton = document.getElementById('setStage');
@@ -148,7 +148,9 @@ roundsEditorSubmitBtn.addEventListener('click', () => {
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify(roundsData)
+        body: JSON.stringify(roundsData),
+        mode: "cors",
+        credentials: "include"
     }).then(resp => resp.json()).then(() => {
     });
 })
@@ -179,6 +181,8 @@ function doSetState(newState) {
             "Content-Type": "application/json",
             // 'Content-Type': 'application/x-www-form-urlencoded',
         },
+        mode: "cors",
+        credentials: "include"
     }).then(resp => resp.json()).then(data => {
         console.log("Set new state: " + JSON.stringify(data))
         if (data["new_state"].split(":").length === 3) {  // is this really necessary...
