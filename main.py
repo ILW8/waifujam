@@ -39,7 +39,7 @@ load_dotenv()
 
 REDIS_ADDR = os.getenv("REDISCONNSTRING")
 PUBSUB_CHANNEL = "waifujam"
-PUB_MIN_INTERVAL = 2
+PUB_MIN_INTERVAL = 1
 SQLALCHEMY_DATABASE_URL = f'mysql+pymysql://{os.getenv("USERNAME")}:{os.getenv("PASSWORD")}' \
                           f'@{os.getenv("HOST")}/{os.getenv("DATABASE")}?charset=utf8mb4&ssl=true'
 # print(SQLALCHEMY_DATABASE_URL)
@@ -115,21 +115,8 @@ MAPS_META = {0: {'title': 'appropriate especially',
                              1: 'https://example.com/v15s0',
                              2: 'https://example.com/v15s2'}}}
 
-STAGE_MAPPINGS = {
-    0: {"section": 0, "maps": [0, 1]},
-    1: {"section": 0, "maps": [2, 3]},
-    2: {"section": 1, "maps": [0, 1]},
-    3: {"section": 1, "maps": [2, 3]},
-    4: {"section": 2, "maps": [0, 1]},
-    5: {"section": 2, "maps": [2, 3]},
-    6: {"section": 3, "maps": [0, 1]},
-    7: {"section": 3, "maps": [2, 3]},
-    8: {"section": 3, "maps": [2, 3]},
-    9: {"section": 3, "maps": [2, 3]},
-    10: {"section": 3, "maps": [2, 3]},
-}
 
-ROUNDS_MAPPING = {
+ROUNDS_MAPPING_TEMPLATE = {
     0: {},  # intro
     1: {"matches": []},  # QF
     2: {"matches": []},  # SM
@@ -520,7 +507,7 @@ async def get_current_votes(keys: WaifuJamKeysDep, force: bool = False, stage: i
 
 @app.get("/rounds")
 async def get_rounds(keys: WaifuJamKeysDep):
-    rounds = ROUNDS_MAPPING.copy()
+    rounds = ROUNDS_MAPPING_TEMPLATE.copy()
     rounds_redis = await redis.hgetall(keys.rounds())
     for key, json_str in rounds_redis.items():
         rounds[int(key)] = {"matches": json.loads(json_str)}
@@ -529,7 +516,7 @@ async def get_rounds(keys: WaifuJamKeysDep):
 
 
 @app.get("/round/{round_id}")
-async def get_round(round_id: Annotated[int, Path(ge=0, le=len(ROUNDS_MAPPING))], keys: WaifuJamKeysDep):
+async def get_round(round_id: Annotated[int, Path(ge=0, le=len(ROUNDS_MAPPING_TEMPLATE))], keys: WaifuJamKeysDep):
     return JSONResponse(json.loads(await redis.hget(keys.rounds(), round_id)))
 
 
@@ -540,7 +527,7 @@ async def set_round(round_id: int, matches: list[tuple], keys: Keys):
 
 @app.post("/round/{round_id}")
 async def update_round(
-        round_id: Annotated[int, Path(ge=1, le=len(ROUNDS_MAPPING))],
+        round_id: Annotated[int, Path(ge=1, le=len(ROUNDS_MAPPING_TEMPLATE))],
         matches: Annotated[list[tuple[int, int]], Body(embed=True)],
         keys: WaifuJamKeysDep
 ):

@@ -3,6 +3,13 @@ let maps;
 let socket;
 let state;
 
+const ENDPOINT_BASE = "waifujam.btmc.live"
+// const ENDPOINT_BASE = "127.0.0.1:8000"
+const API_ENDPOINT = `https://${ENDPOINT_BASE}/`
+// const API_ENDPOINT = `http://${ENDPOINT_BASE}/`
+const WEBSOCKET_ENDPOINT = `wss://${ENDPOINT_BASE}/ws`
+// const WEBSOCKET_ENDPOINT = `ws://${ENDPOINT_BASE}/ws`
+
 const setStageButton = document.getElementById('setStage');
 const stageInput = document.getElementById('stage-input')
 const matchInput = document.getElementById('match-input')
@@ -136,7 +143,7 @@ roundsEditorSubmitBtn.addEventListener('click', () => {
         roundsData.matches.push([leftSelect.value, rightSelect.value])
     }
 
-    fetch("http://127.0.0.1:8000/round/" + roundsEditorSelect.value, {
+    fetch(API_ENDPOINT + "round/" + roundsEditorSelect.value, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -147,7 +154,7 @@ roundsEditorSubmitBtn.addEventListener('click', () => {
 })
 
 hideRoundButton.addEventListener('click', () => {
-    doSetState(`${state.split(":")[0]}:-1`)
+    doSetState(`${state.split(":")[0]}:-1:${state.split(":")[2]}`)
 })
 
 stageInput.addEventListener('change', () => {
@@ -165,7 +172,7 @@ stageInput.addEventListener('change', () => {
 
 
 function doSetState(newState) {
-    fetch("http://127.0.0.1:8000/state", {
+    fetch(API_ENDPOINT + "state", {
         method: "POST",
         body: JSON.stringify({new_state: newState}),
         headers: {
@@ -203,7 +210,7 @@ function loadMeta() {
 
 
 function loadRounds() {
-    return fetch("http://127.0.0.1:8000/rounds")
+    return fetch(API_ENDPOINT + "rounds")
         .then(resp => resp.json())
         .then(data => {
             rounds = data
@@ -216,7 +223,7 @@ function loadRounds() {
 
 
 function loadState() {
-    fetch("http://127.0.0.1:8000/state")
+    fetch(API_ENDPOINT + "state")
         .then(resp => {
             if (resp.ok) {
                 return resp.json()
@@ -258,7 +265,7 @@ function loadState() {
 
 
 function loadMaps() {
-    return fetch("http://127.0.0.1:8000/maps")
+    return fetch(API_ENDPOINT + "maps")
         .then(resp => resp.json())
         .then(data => {
             // console.log("maps:")
@@ -268,7 +275,7 @@ function loadMaps() {
 }
 
 function initSocket() {
-    socket = new ReconnectingWebSocket('ws://localhost:8000/ws')
+    socket = new ReconnectingWebSocket(WEBSOCKET_ENDPOINT)
     socket.onopen = () => {
         console.log('Successfully Connected');
     };
@@ -284,7 +291,7 @@ function initSocket() {
 
     socket.onmessage = event => {
         let data = event.data;
-        // console.log(data);
+        console.log(data);
     };
 }
 
