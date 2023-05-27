@@ -188,4 +188,5 @@ if __name__ == '__main__':
                     3: AAAA[key]["Ro2"],
                     4: AAAA[key]["Full"]
                 }
-    print(json.dumps({k: v for k, v in sorted(new_meta.items(), key=lambda x: x[0])}, indent=4))
+    from pprint import pprint
+    pprint({k: v for k, v in sorted(new_meta.items(), key=lambda x: x[0])})
