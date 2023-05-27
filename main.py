@@ -407,13 +407,13 @@ async def vote_endpoint(vote: VoteRequest,
         return JSONResponse({"error": f"currently active round:stage is {state_round}:{state_match}, "
                                       f"tried voting for {vote.round}:{vote.match}"},
                             status_code=400)
-
+    return JSONResponse(voter)
     already_voted_resp = JSONResponse({"error": f"You have already voted for stage {state}"}, status_code=409)
-    if await redis.sismember(f"{keys.votes_key_prefix()}{state}", voter["username"]):
+    if await redis.sismember(f"{keys.votes_key_prefix()}{state}", voter["id"]):
         return already_voted_resp
 
     # insert into db, fail if vote already exists
-    db_vote = Vote(twitch_user_id=voter["userid"], round=vote.round, vote=vote.vote)
+    db_vote = Vote(twitch_user_id=voter["id"], round=vote.round, vote=vote.vote)
     session.add(db_vote)
     try:
         session.commit()
