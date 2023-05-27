@@ -18,8 +18,15 @@ const roundsEditorSelect = document.getElementById("rounds-select");
 const roundsEditorContainer = document.getElementById("editor-container");
 const roundsEditorSubmitBtn = document.getElementById("submit-round");
 
+const pauseVideoButton = document.getElementById("pause-video-btn");
+const startVideoButton = document.getElementById("start-video-btn");
+
 const volumeInput = document.getElementById("volume-input");
 const changeVolumeButton = document.getElementById("change-volume");
+
+const voteOverrideLeft = document.getElementById("vote-override-left");
+const voteOverrideRight = document.getElementById("vote-override-right");
+const voteOverrideButton = document.getElementById("vote-override-button");
 // const matchEditorMapLeft = document.getElementById("match-map-left");
 // const matchEditorMapRight = document.getElementById("match-map-right");
 
@@ -32,8 +39,44 @@ const changeVolumeButton = document.getElementById("change-volume");
 //     console.log(volumeInput.value);
 // })
 
+voteOverrideButton.addEventListener('click', () => {
+    fetch("https://btmc.live/wjoverlays/changeVolume", {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({left: parseInt(voteOverrideLeft.value), right: parseInt(voteOverrideRight.value)})
+    }).then(() => {
+    })
+})
+
+pauseVideoButton.addEventListener('click', () => {
+    fetch("https://btmc.live/wjoverlays/pauseVideos", {
+        method: "POST",
+        mode: "cors",
+    }).then(() => {
+    })
+})
+
+startVideoButton.addEventListener('click', () => {
+    fetch("https://btmc.live/wjoverlays/startVideos", {
+        method: "POST",
+        mode: "cors",
+    }).then(() => {
+    })
+})
+
 changeVolumeButton.addEventListener('click', () => {
-    console.log(volumeInput.value);
+    const newValue = parseInt(volumeInput.value);
+    console.log(`Changing volume to ${newValue}%`);
+    fetch("https://btmc.live/wjoverlays/changeVolume", {
+        method: "POST",
+        mode: "cors",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({volume: newValue / 100})
+    }).then(() => {
+    })
 })
 
 
