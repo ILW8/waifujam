@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import random
+import secrets
 import signal
 import urllib.parse
 import uuid
@@ -13,9 +14,11 @@ from fastapi.params import Path
 from redis import asyncio as aioredis
 from broadcaster import Broadcast
 
-from fastapi import FastAPI, WebSocket, Depends, BackgroundTasks, Cookie, Body
+from fastapi import FastAPI, WebSocket, Depends, BackgroundTasks, Cookie, Body, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
 from sqlalchemy import UniqueConstraint, Column
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import expression
@@ -27,6 +30,8 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, BaseSettings
 import asyncio
+
+from starlette import status
 from uvicorn.main import Server
 
 from dotenv import load_dotenv
@@ -344,6 +349,30 @@ app.add_middleware(CORSMiddleware,
                    allow_methods=["*"],
                    allow_headers=["*"], )
 
+security = HTTPBasic()
+
+
+def get_current_username(
+    credentials: Annotated[HTTPBasicCredentials, Depends(security)]
+):
+    current_username_bytes = credentials.username.encode("utf8")
+    correct_username_bytes = b"British Toastmasters Club Jakarta"
+    is_correct_username = secrets.compare_digest(
+        current_username_bytes, correct_username_bytes
+    )
+    current_password_bytes = credentials.password.encode("utf8")
+    correct_password_bytes = os.getenv("MANAGEMENT_PASSWORD", "wysi727").encode("utf8")
+    is_correct_password = secrets.compare_digest(
+        current_password_bytes, correct_password_bytes
+    )
+    if not (is_correct_username and is_correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
 
 # ======== routes ========
 
@@ -462,7 +491,8 @@ async def get_current_state(keys: WaifuJamKeysDep):
 @app.post("/state")
 async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:-?\d+:\d$")],
                             keys: WaifuJamKeysDep,
-                            background_tasks: BackgroundTasks):
+                            background_tasks: BackgroundTasks,
+                            _: Annotated[str, Depends(get_current_username)]):
     state = await update_state(new_state, keys, background_tasks)
     return JSONResponse({"new_state": state})
 
@@ -530,7 +560,8 @@ async def set_round(round_id: int, matches: list[tuple], keys: Keys):
 async def update_round(
         round_id: Annotated[int, Path(ge=1, le=len(ROUNDS_MAPPING_TEMPLATE))],
         matches: Annotated[list[tuple[int, int]], Body(embed=True)],
-        keys: WaifuJamKeysDep
+        keys: WaifuJamKeysDep,
+        _: Annotated[str, Depends(get_current_username)]
 ):
     if len(matches) != 8 // (2 ** (round_id - 1)):
         # raise RequestValidationError()
