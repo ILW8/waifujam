@@ -389,7 +389,7 @@ async def vote_endpoint(vote: VoteRequest,
                         background_tasks: BackgroundTasks,
                         session: Session = Depends(get_session),
                         session_string: Annotated[str | None, Cookie(alias="_btmcache")] = None):
-    # TODO: !!!!!!!!!!!!!!!!!!!!!!!!!! UPDATE THIS TO USE NEW STATE :-SEPARATED TRIPLET !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     if session_string is None:
         return JSONResponse({"error": "Missing session cookie"}, status_code=400)
     voter = await check_identity(session_string)
@@ -402,7 +402,7 @@ async def vote_endpoint(vote: VoteRequest,
     state = await redis.get(keys.state_key())
     if state is None:
         return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
-    state_round, state_match, _ = state.split(":")
+    state_round, state_match, _ = tuple(map(int, state.split(":")))
     if vote.round != state_round or vote.match != state_match:
         return JSONResponse({"error": f"currently active round:stage is {state_round}:{state_match}, "
                                       f"tried voting for {vote.round}:{vote.match}"},
