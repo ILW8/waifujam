@@ -328,8 +328,6 @@ async def update_redis_votes(vote: Vote, keys: Keys):
     await asyncio.gather(
         redis.sadd(f"{keys.votes_key_prefix()}:{vote.round}:{vote.match}", vote.twitch_user_id),
         redis.hincrby(keys.live_votes_key(), f"{vote.round}:{vote.match}:{vote.vote}", 1),
-        # redis.publish(PUBSUB_CHANNEL, f'votes|{await redis.hget(keys.live_votes_key(), f"{vote.stage}:0")}'
-        #                               f'|{await redis.hget(keys.live_votes_key(), f"{vote.stage}:1")}')
     )
     do_not_publish = await redis.get(keys.last_time_publish())
     if do_not_publish is not None:
@@ -546,6 +544,7 @@ async def send_new_state_with_data(new_state: str, keys: Keys):
 
 async def update_state(new_state: str, keys: Keys, background_tasks: BackgroundTasks):
     await redis.set(keys.state_key(), new_state)
+    await redis.set(keys.live_votes_key(), 0)
     await broadcast.publish(PUBSUB_CHANNEL, f'newstate|{new_state}')
     background_tasks.add_task(send_new_state_with_data, new_state, keys)
     return await redis.get(keys.state_key())
@@ -610,6 +609,17 @@ async def update_round(
 @app.get("/maps")
 async def get_maps():
     return JSONResponse(MAPS_META)
+
+
+@app.post("/reload_cached_votes")
+async def reload_cached_votes(keys: WaifuJamKeysDep, _: Annotated[str, Depends(get_current_username)]):
+    # delete all keys starting with keys.votes_key_prefix()
+    count = 0
+    async for key in redis.scan_iter(f"{keys.votes_key_prefix()}*"):
+        await redis.delete(key)
+        count += 1
+
+    return JSONResponse({"deleted": count})
 
 
 @app.websocket("/ws")
