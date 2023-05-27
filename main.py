@@ -32,6 +32,7 @@ from pydantic import BaseModel, BaseSettings
 import asyncio
 
 from starlette import status
+from starlette.requests import Request
 from uvicorn.main import Server
 
 from dotenv import load_dotenv
@@ -57,6 +58,7 @@ CORS_ORIGINS = [
     "https://btmc.ams3.digitaloceanspaces.com",
     "https://btmc.ams3.cdn.digitaloceanspaces.com",
 ]
+
 MAPS_META = {0: {'title': 'appropriate especially',
                  'videos': {0: 'https://example.com/v0s0',
                             1: 'https://example.com/v0s0',
@@ -400,11 +402,8 @@ async def check_identity(session_string: str, keys: Keys) -> dict | None:
     session_key_redis = f"sess:{session_string}"
     print(session_key_redis)
 
-    # todo: for debug, remove this
-    return {"username": "notreallyaJame", "userid": random.randint(0, 1024)}
-
     try:
-        twitch_session_data = json.loads(await redis.get(twitch_token))
+        twitch_session_data = json.loads(await redis.get(session_key_redis))
     except TypeError:  # redis.get -> None causes TypeError when calling json.loads
         return None
 
@@ -415,13 +414,23 @@ async def check_identity(session_string: str, keys: Keys) -> dict | None:
     return twitch_session_data
 
 
+@app.get("/test")
+async def test_endpoint(req: Request):
+    print(req.cookies)
+    print(req.headers)
+    return JSONResponse({"c": req.cookies, "headers": req.headers})
+
+
 @app.post("/vote")
 async def vote_endpoint(vote: VoteRequest,
                         keys: WaifuJamKeysDep,
+                        request: Request,
                         background_tasks: BackgroundTasks,
                         session: Session = Depends(get_session),
                         session_string: Annotated[str | None, Cookie(alias="_btmcache")] = None,
-                        gusdigfsduaioagguweriuveurg: bool = False):
+                        gusdigfsduaioagguweriuveurg: bool = False,):
+    print(request.cookies)
+    print(request.headers)
     # bypass checks, TODO: REMOVE THIS!!!!!!!!!!!!!!!
     if gusdigfsduaioagguweriuveurg:
         await redis.hincrby(keys.live_votes_key(), f"{vote.stage}:{vote.vote}", 1),
@@ -442,6 +451,8 @@ async def vote_endpoint(vote: VoteRequest,
     voter = await check_identity(session_string, keys)
     if voter is None:
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
+
+    return JSONResponse({"username": voter["username"]})
 
     state = await redis.get(keys.state_key())
     if state is None:

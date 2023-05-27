@@ -17,8 +17,24 @@ const showRoundButton = document.getElementById("showRound");
 const roundsEditorSelect = document.getElementById("rounds-select");
 const roundsEditorContainer = document.getElementById("editor-container");
 const roundsEditorSubmitBtn = document.getElementById("submit-round");
+
+const volumeInput = document.getElementById("volume-input");
+const changeVolumeButton = document.getElementById("change-volume");
 // const matchEditorMapLeft = document.getElementById("match-map-left");
 // const matchEditorMapRight = document.getElementById("match-map-right");
+
+// https://btmc.live/wjoverlays/pauseVideos
+// https://btmc.live/wjoverlays/startVideos
+// https://btmc.live/wjoverlays/changeVolume {volume: <0-1>}
+// https://btmc.live/wjoverlays/setVoting {left: Number, right: Number}
+
+// volumeInput.addEventListener('input', () => {
+//     console.log(volumeInput.value);
+// })
+
+changeVolumeButton.addEventListener('click', () => {
+    console.log(volumeInput.value);
+})
 
 
 function removeOptionsFromOthers(event) {

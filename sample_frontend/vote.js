@@ -2,12 +2,12 @@ let stages;
 let socket;
 let state;
 
-fetch("http://127.0.0.1:8000/stages")
+fetch("https://waifujam.btmc.live/stages")
     .then(resp => resp.json())
     .then(data => {
         stages = data
         console.log(stages)
-        socket = new ReconnectingWebSocket('ws://localhost:8000/ws')
+        socket = new ReconnectingWebSocket('wss://waifujam.btmc.live/ws')
         socket.onopen = () => {
             console.log('Successfully Connected');
         };
@@ -66,13 +66,13 @@ function sendVote(vote) {
     // todo: uncomment these
     // voteLeftButton.disabled = true
     // voteRightButton.disabled = true
-    fetch("http://127.0.0.1:8000/vote?" + new URLSearchParams({gusdigfsduaioagguweriuveurg: 'true'}), {
+    fetch("https://waifujam.btmc.live/vote?" + new URLSearchParams({gusdigfsduaioagguweriuveurg: 'true'}), {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            "stage": state,
+            "stage": 3,
             "vote": vote,
         })
     }).then(resp => {
@@ -104,7 +104,7 @@ function updateState(newState) {
 }
 
 
-fetch("http://127.0.0.1:8000/state")
+fetch("https://waifujam.btmc.live/state")
     .then(resp => {
         if (resp.ok) {
             return resp.json()
@@ -124,7 +124,7 @@ fetch("http://127.0.0.1:8000/state")
 
 
 function getVotes() {
-    fetch("http://127.0.0.1:8000/votes?stage=" + state)
+    fetch("https://waifujam.btmc.live/votes?stage=" + state)
         .then(resp => resp.json())
         .then(data => {
             votesCountLeft.dataset.newval = data["" + state + ":0"];

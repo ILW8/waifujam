@@ -18,6 +18,25 @@
 </head>
 
 <body>
+<h3>Video player control</h3>
+<button>Pause videos</button>
+<button>Start videos</button>
+
+<br>
+<br>
+
+<label>
+    Volume:
+    <input type="range" id="volume-input"/>
+</label>
+<button id="change-volume">Change volume</button>
+
+<br>
+<br>
+
+<label for="vote-override-left">Votes left: </label><input type="number" id="vote-override-left" min="0" value="0">
+<label for="vote-override-right">Votes Right: </label><input type="number" id="vote-override-right" min="0" value="0">
+<button>Set votes</button>
 <hr>
 <h3>Stage select</h3>
 <p>Round visibility: <span id="currentVisibility">?</span></p>
@@ -37,8 +56,8 @@
        width="32"/>
 <label for="match-state">vote status: </label>
 <select id="match-state">
-    <option value="0" selected>ongoing (0)</option>
-    <option value="1">stopped (1)</option>
+    <option value="0" selected>stopped (0)</option>
+    <option value="1">ongoing (1)</option>
 </select>
 <button id="setStage">Set stage and match</button>
 <button id="hideRound">Hide everything (set match to -1)</button>
