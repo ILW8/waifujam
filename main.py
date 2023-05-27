@@ -3,7 +3,6 @@
 import datetime
 import json
 import os
-import random
 import secrets
 import signal
 import urllib.parse
@@ -53,7 +52,6 @@ CORS_ORIGINS = [
     "http://localhost",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-    "http://btmc.live",
     "https://btmc.live",
     "https://btmc.ams3.digitaloceanspaces.com",
     "https://btmc.ams3.cdn.digitaloceanspaces.com",
@@ -123,7 +121,6 @@ MAPS_META = {0: {'title': 'appropriate especially',
                   'videos': {0: 'https://example.com/v15s0',
                              1: 'https://example.com/v15s0',
                              2: 'https://example.com/v15s2'}}}
-
 
 ROUNDS_MAPPING_TEMPLATE = {
     0: {},  # intro
@@ -346,17 +343,19 @@ async def update_redis_votes(vote: Vote, keys: Keys):
 
 # app = FastAPI()
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware,
-                   allow_origins=CORS_ORIGINS,
-                   allow_credentials=True,
-                   allow_methods=["*"],
-                   allow_headers=["*"], )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 security = HTTPBasic()
 
 
 def get_current_username(
-    credentials: Annotated[HTTPBasicCredentials, Depends(security)]
+        credentials: Annotated[HTTPBasicCredentials, Depends(security)]
 ):
     current_username_bytes = credentials.username.encode("utf8")
     correct_username_bytes = b"British Toastmasters Club Jakarta"
@@ -385,7 +384,7 @@ async def get():
 
 
 # noinspection PyUnreachableCode
-async def check_identity(session_string: str, keys: Keys) -> dict | None:
+async def check_identity(session_string: str) -> dict | None:
     # @app.post("/")
     # async def handle_post(request: Request):
     #     print(request.headers)
@@ -394,24 +393,16 @@ async def check_identity(session_string: str, keys: Keys) -> dict | None:
     #     if the_thing is not None:
     #         print(urllib.parse.unquote(the_thing))
     session_string = urllib.parse.unquote(session_string)
-    print(session_string)
-    try:
-        print(f"{(session_string := session_string.split(':')[1].split('.')[0])=}")
-    except IndexError:  # session_string invalid
-        return None
-    session_key_redis = f"sess:{session_string}"
-    print(session_key_redis)
 
     try:
+        session_key_redis = f"sess:{session_string.split(':')[1].split('.')[0]}"
         twitch_session_data = json.loads(await redis.get(session_key_redis))
-    except TypeError:  # redis.get -> None causes TypeError when calling json.loads
+        return twitch_session_data['passport']['user']['data'][0]
+    # IndexError: session_string invalid or twitch_session_data.passport.user.data is of length 0
+    # TypeError:  redis.get -> None causes TypeError when calling json.loads
+    # KeyError:   twitch_session_data doesn't contain .passport.user.data
+    except (IndexError, TypeError, KeyError):
         return None
-
-    try:
-        print(twitch_session_data['passport']['user']['data'][0]['id'])
-    except KeyError:
-        return None
-    return twitch_session_data
 
 
 @app.get("/test")
@@ -427,32 +418,16 @@ async def vote_endpoint(vote: VoteRequest,
                         request: Request,
                         background_tasks: BackgroundTasks,
                         session: Session = Depends(get_session),
-                        session_string: Annotated[str | None, Cookie(alias="_btmcache")] = None,
-                        gusdigfsduaioagguweriuveurg: bool = False,):
-    print(request.cookies)
-    print(request.headers)
-    # bypass checks, TODO: REMOVE THIS!!!!!!!!!!!!!!!
-    if gusdigfsduaioagguweriuveurg:
-        await redis.hincrby(keys.live_votes_key(), f"{vote.stage}:{vote.vote}", 1),
-
-        do_not_publish = await redis.get(keys.last_time_publish())
-        if do_not_publish is not None:
-            return vote
-        votes = await redis.hgetall(keys.live_votes_key())
-        left, right = votes.get(f"{vote.stage}:0", 0), votes.get(f"{vote.stage}:1", 0)
-        # print("publishing")
-        await broadcast.publish(PUBSUB_CHANNEL, f'updatevotes|{left}|{right}')
-        await redis.set(keys.last_time_publish(), "", ex=PUB_MIN_INTERVAL)  # set empty value, only cares about expiry
-        return vote
-
+                        session_string: Annotated[str | None, Cookie(alias="_btmcache")] = None):
     # TODO: !!!!!!!!!!!!!!!!!!!!!!!!!! UPDATE THIS TO USE NEW STATE :-SEPARATED TRIPLET !!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if session_string is None:
         return JSONResponse({"error": "Missing session cookie"}, status_code=400)
-    voter = await check_identity(session_string, keys)
+    voter = await check_identity(session_string)
     if voter is None:
         return JSONResponse({"error": "Could not find valid Twitch session"}, status_code=401)
 
-    return JSONResponse({"username": voter["username"]})
+    # return JSONResponse(voter)
+    return JSONResponse({"username": voter.get("display_name")})
 
     state = await redis.get(keys.state_key())
     if state is None:
