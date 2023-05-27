@@ -523,12 +523,12 @@ async def get_aux_state_data(state: str, keys: Keys):
         # first set essential data
         state_aux_data["left"] = {
             "title": MAPS_META[meta_index_left]["title"],
-            "currentVideo": MAPS_META[meta_index_left]["videos"][int(state_round)],
+            "currentVideo": MAPS_META[meta_index_left]["videos"][int(state_round) - 1],
             "votes": votes.get(f"{state_round}:{state_match_id}:0", 0)
         }
         state_aux_data["right"] = {
             "title": MAPS_META[meta_index_right]["title"],
-            "currentVideo": MAPS_META[meta_index_right]["videos"][int(state_round)],
+            "currentVideo": MAPS_META[meta_index_right]["videos"][int(state_round) - 1],
             "votes": votes.get(f"{state_round}:{state_match_id}:1", 0)
         }
     except IndexError:
