@@ -478,8 +478,8 @@ async def send_new_state_with_data(new_state: str, keys: Keys):
             "currentVideo": MAPS_META[round_matches[state_match_id][0]]["videos"][state_match_id]
         },
         "right": {
-            "title": MAPS_META[round_matches[state_match_id][0]]["title"],
-            "currentVideo": MAPS_META[round_matches[state_match_id][0]]["videos"][state_match_id]
+            "title": MAPS_META[round_matches[state_match_id][1]]["title"],
+            "currentVideo": MAPS_META[round_matches[state_match_id][1]]["videos"][state_match_id]
         },
     })
     await broadcast.publish(PUBSUB_CHANNEL, f'newstatewithdata|{new_state}|{state_aux_data}')
