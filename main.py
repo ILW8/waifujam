@@ -449,7 +449,7 @@ async def get_current_state(keys: WaifuJamKeysDep):
 
 
 @app.post("/state")
-async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:-?\d+:\d$")],
+async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^\d+:-?\d+:\d+$")],
                             keys: WaifuJamKeysDep,
                             background_tasks: BackgroundTasks,
                             _: Annotated[str, Depends(get_current_username)]):
@@ -474,13 +474,18 @@ async def send_new_state_with_data(new_state: str, keys: Keys):
         meta_index_left = round_matches[state_match_id][0]
         meta_index_right = round_matches[state_match_id][1]
 
+        votes = await redis.hgetall(keys.live_votes_key())
+
+        # first set essential data
         state_aux_data["left"] = {
             "title": MAPS_META[meta_index_left]["title"],
-            "currentVideo": MAPS_META[meta_index_left]["videos"][state_match_id]
+            "currentVideo": MAPS_META[meta_index_left]["videos"][state_match_id],
+            "votes": votes.get(f"{state_round}:{state_match_id}:0", 0)
         }
         state_aux_data["right"] = {
             "title": MAPS_META[meta_index_right]["title"],
-            "currentVideo": MAPS_META[meta_index_right]["videos"][state_match_id]
+            "currentVideo": MAPS_META[meta_index_right]["videos"][state_match_id],
+            "votes": votes.get(f"{state_round}:{state_match_id}:1", 0)
         }
     except IndexError:
         pass
@@ -495,18 +500,18 @@ async def update_state(new_state: str, keys: Keys, background_tasks: BackgroundT
     return await redis.get(keys.state_key())
 
 
-@app.get("/votes")
-async def get_current_votes(keys: WaifuJamKeysDep, force: bool = False, stage: int = None):
-    if not force:
-        all_keys = await redis.hgetall(keys.live_votes_key())
-        if stage is None:
-            print(all_keys)
-            return JSONResponse(all_keys)
-
-        return JSONResponse({
-            f"{stage}:0": all_keys.get(f"{stage}:0", "0"),
-            f"{stage}:1": all_keys.get(f"{stage}:1", "0")
-        })
+# @app.get("/votes")
+# async def get_current_votes(keys: WaifuJamKeysDep, force: bool = False, stage: int = None):
+#     if not force:
+#         all_keys = await redis.hgetall(keys.live_votes_key())
+#         if stage is None:
+#             print(all_keys)
+#             return JSONResponse(all_keys)
+#
+#         return JSONResponse({
+#             f"{stage}:0": all_keys.get(f"{stage}:0", "0"),
+#             f"{stage}:1": all_keys.get(f"{stage}:1", "0")
+#         })
 
 
 @app.get("/rounds")

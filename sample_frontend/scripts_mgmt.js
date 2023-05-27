@@ -10,7 +10,11 @@ const WEBSOCKET_ENDPOINT = `wss://${ENDPOINT_BASE}/ws`
 const setStageButton = document.getElementById('setStage');
 const stageInput = document.getElementById('stage-input')
 const matchInput = document.getElementById('match-input')
-const voteStatusInput = document.getElementById("match-state");
+// const voteStatusInput = document.getElementById("match-state");
+const voteStateWinner = document.getElementById("vote-state-has-winner");
+const voteStateShowcaseLeft = document.getElementById("vote-state-showcase-left");
+const voteStateShowcaseRight = document.getElementById("vote-state-showcase-right");
+const voteStateActive = document.getElementById("vote-state-voting-active");
 const stageVisibility = document.getElementById('currentVisibility')
 const hideRoundButton = document.getElementById("hideRound");
 const showRoundButton = document.getElementById("showRound");
@@ -40,10 +44,10 @@ const voteOverrideButton = document.getElementById("vote-override-button");
 // })
 
 voteOverrideButton.addEventListener('click', () => {
-    fetch("https://btmc.live/wjoverlays/changeVolume", {
+    fetch("https://btmc.live/wjoverlays/setVoting", {
         method: "POST",
         mode: "cors",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({left: parseInt(voteOverrideLeft.value), right: parseInt(voteOverrideRight.value)})
     }).then(() => {
     })
@@ -252,7 +256,30 @@ function doSetState(newState) {
 
 function setStage() {
     // console.log(stageInput.value);
-    doSetState(`${stageInput.value}:${matchInput.value}:${voteStatusInput.value}`);
+
+    //voteStatusInput.value
+
+    if (voteStateShowcaseLeft.checked && voteStateShowcaseRight.checked) {
+        document.getElementById("vote-state-validation-error").style.display = 'block';
+        document.getElementById("vote-state-validation-error").innerText = "Cannot have both left and right showcase active at the same time";
+        return;
+    }
+
+    if (voteStateActive.checked && voteStateWinner.checked) {
+        document.getElementById("vote-state-validation-error").style.display = 'block';
+        document.getElementById("vote-state-validation-error").innerText = "cannot have winner decided and voting active at the same time";
+        return;
+    }
+
+    let newVoteStatus = 0;
+    newVoteStatus += voteStateActive.checked;
+    newVoteStatus += voteStateShowcaseRight.checked << 1;
+    newVoteStatus += voteStateShowcaseLeft.checked << 2;
+    newVoteStatus += voteStateWinner.checked << 3;
+    // console.log(newVoteStatus);
+    document.getElementById("vote-state-validation-error").style.display = 'none';
+
+    doSetState(`${stageInput.value}:${matchInput.value}:${newVoteStatus}`);
 }
 
 setStageButton.addEventListener('click', setStage)
@@ -311,9 +338,16 @@ function loadState() {
             matchInput.value = match;
             matchInput.dispatchEvent(new Event('change'));
 
-            // visibility select
-            voteStatusInput.value = status;
-            voteStatusInput.dispatchEvent(new Event("change"));
+            // visibility select  ((deprecated))
+            // voteStatusInput.value = status;
+            // voteStatusInput.dispatchEvent(new Event("change"));
+
+            // visibility status:
+            status = parseInt(status);
+            voteStateWinner.checked = (status & 0x8) > 0;
+            voteStateShowcaseLeft.checked = (status & 0x4) > 0;
+            voteStateShowcaseRight.checked = (status & 0x2) > 0;
+            voteStateActive.checked = (status & 0x1) > 0;
 
             // rounds editor
             roundsEditorSelect.value = round;

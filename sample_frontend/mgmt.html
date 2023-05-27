@@ -54,11 +54,22 @@
        max="0"
        value="0"
        width="32"/>
-<label for="match-state">vote status: </label>
-<select id="match-state">
-    <option value="0" selected>stopped (0)</option>
-    <option value="1">ongoing (1)</option>
-</select>
+<!--<label for="match-state">vote status: </label>-->
+<!--<select id="match-state">-->
+<!--    <option value="0" selected>stopped (0)</option>-->
+<!--    <option value="1">ongoing (1)</option>-->
+<!--</select>-->
+| |
+<label for="vote-state-has-winner">Winner decided: </label><input type="checkbox" id="vote-state-has-winner">
+|
+<label for="vote-state-showcase-left">Showcase left: </label><input type="checkbox" id="vote-state-showcase-left">
+|
+<label for="vote-state-showcase-right">Showcase right: </label><input type="checkbox" id="vote-state-showcase-right">
+|
+<label for="vote-state-voting-active">Voting active: </label><input type="checkbox" id="vote-state-voting-active">
+<span style="display: none; color: #ff0000" id="vote-state-validation-error"></span>
+
+
 <button id="setStage">Set stage and match</button>
 <button id="hideRound">Hide everything (set match to -1)</button>
 
