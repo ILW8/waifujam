@@ -425,8 +425,8 @@ async def vote_endpoint(vote: VoteRequest,
                                                   Vote.round == db_vote.round,
                                                   Vote.match == db_vote.match)).first()
             if res is not None:  # vote on this stage by this user already exists
-                return JSONResponse({"error": f"twitch user {res.twitch_user_id} has already voted "
-                                              f"in stage {res.round}:{res.match}"}, status_code=409)
+                return JSONResponse({"error": f"twitch user {res.twitch_user_id} ({voter.get('display_name', 'N/A')}) "
+                                              f"has already voted in stage {res.round}:{res.match}"}, status_code=409)
 
         # otherwise, different integrity error
         return JSONResponse({"error": "Unexpected IntegrityError"}, status_code=500)
