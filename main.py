@@ -473,12 +473,17 @@ async def vote_endpoint(vote: VoteRequest,
 
 
 @app.get("/state")
-async def get_current_state(keys: WaifuJamKeysDep):
+async def get_current_state(keys: WaifuJamKeysDep,
+                            session_string: Annotated[str | None, Cookie(alias="_btmcache")] = None):
+
     state = await redis.get(keys.state_key())
     if state is None:
         return JSONResponse({"error": "server does not have an active state, please try again later"}, status_code=503)
-
-    return JSONResponse({"state": state})
+    resp_obj = {
+        "state": state,
+        "aux_data": await get_aux_state_data(state, keys)
+    }
+    return JSONResponse(resp_obj)
 
 
 @app.post("/state")
@@ -490,10 +495,10 @@ async def set_current_state(new_state: Annotated[str, Body(embed=True, regex=r"^
     return JSONResponse({"new_state": state})
 
 
-async def send_new_state_with_data(new_state: str, keys: Keys):
-    if int(state_round := new_state.split(":")[0]) == 0:
+async def get_aux_state_data(state: str, keys: Keys):
+    if int(state_round := state.split(":")[0]) == 0:
         return
-    state_match_id = int(new_state.split(":")[1])
+    state_match_id = int(state.split(":")[1])
     try:
         round_matches = json.loads(await redis.hget(keys.rounds(), state_round))
     except TypeError:
@@ -512,17 +517,22 @@ async def send_new_state_with_data(new_state: str, keys: Keys):
         # first set essential data
         state_aux_data["left"] = {
             "title": MAPS_META[meta_index_left]["title"],
-            "currentVideo": MAPS_META[meta_index_left]["videos"][state_match_id],
+            "currentVideo": MAPS_META[meta_index_left]["videos"][int(state_round)],
             "votes": votes.get(f"{state_round}:{state_match_id}:0", 0)
         }
         state_aux_data["right"] = {
             "title": MAPS_META[meta_index_right]["title"],
-            "currentVideo": MAPS_META[meta_index_right]["videos"][state_match_id],
+            "currentVideo": MAPS_META[meta_index_right]["videos"][int(state_round)],
             "votes": votes.get(f"{state_round}:{state_match_id}:1", 0)
         }
     except IndexError:
         pass
 
+    return state_aux_data
+
+
+async def send_new_state_with_data(new_state: str, keys: Keys):
+    state_aux_data = await get_aux_state_data(new_state, keys)
     await broadcast.publish(PUBSUB_CHANNEL, f'newstatewithdata|{new_state}|{json.dumps(state_aux_data)}')
 
 
