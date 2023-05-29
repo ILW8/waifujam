@@ -6,7 +6,7 @@ const url = `${baseUrl}${playersDataJson}`
 const corsProxyBaseUrl = `http://localhost:8010/proxy`
 
 // paste your api v1 token here, DO NOT SHARE THIS TOKEN WITH ANYONE ELSE AND REMOVE FROM CODE BEFORE SHARING CODE
-const apiV1Token = "PASTE-YOUR-KEY-HERE"
+const apiV1Token = "***REMOVED***"
 
 const playersContainer = document.getElementById("player-container-left");
 const playerTemplate = document.getElementById("player-template");
