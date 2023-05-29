@@ -14,11 +14,19 @@ const playersContainer = document.getElementById("player-container-left");
 const playerTemplate = document.getElementById("player-template");
 
 
+function playerClickHandler(event) {
+    console.log(`Clicked ${event.target.parentElement.id}`)
+}
+
+
 function populatePlayers() {
     fetch(playersDataJson).then(response => response.json()).then(async data => {
-    for (const playerId of data) {
+    for (const index in data) {
+        const playerId = data[index];
         // console.log(playerId);
         const newNode = playerTemplate.content.cloneNode(true);
+        newNode.querySelector("div").id = `${index}-${playerId}`
+        newNode.querySelector("img").addEventListener('click', playerClickHandler);
 
         try {
             let response = await fetch(
