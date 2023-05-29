@@ -162,3 +162,4 @@ cython_debug/
 
 /sample_frontend/node_modules/
 /redis_conf/redis.conf
+/sample_frontend/cdc/data/apiv1token.txt

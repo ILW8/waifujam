@@ -1,5 +1,12 @@
-// paste your api v1 token here, DO NOT SHARE THIS TOKEN WITH ANYONE ELSE AND REMOVE FROM CODE BEFORE SHARING CODE
-const apiV1Token = ""
+// paste your api v1 token into data/apiv1token.txt
+let apiV1Token = ""
+
+fetch("data/apiv1token.txt").then(async response => {
+    apiV1Token = await response.text();
+    console.log(apiV1Token);
+
+    populatePlayers();
+})
 
 
 
@@ -17,7 +24,8 @@ const playerTemplate = document.getElementById("player-template");
 console.log(playersContainer);
 
 
-fetch(playersDataJson).then(response => response.json()).then(async data => {
+function populatePlayers() {
+    fetch(playersDataJson).then(response => response.json()).then(async data => {
     // console.log(data);
     for (const playerId of data) {
         console.log(playerId);
@@ -40,3 +48,4 @@ fetch(playersDataJson).then(response => response.json()).then(async data => {
         playersContainer.appendChild(newNode);
     }
 })
+}
