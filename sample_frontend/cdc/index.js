@@ -1,8 +1,7 @@
-const playersDataJson = '/players.json'
+const playersDataJson = 'data/players.json'
 
 // noinspection HttpUrlsUsage
 const baseUrl = `http://${window.location.host}`
-const url = `${baseUrl}${playersDataJson}`
 const corsProxyBaseUrl = `http://localhost:8010/proxy`
 
 // paste your api v1 token here, DO NOT SHARE THIS TOKEN WITH ANYONE ELSE AND REMOVE FROM CODE BEFORE SHARING CODE
@@ -14,7 +13,7 @@ const playerTemplate = document.getElementById("player-template");
 console.log(playersContainer);
 
 
-fetch(url).then(response => response.json()).then(async data => {
+fetch(playersDataJson).then(response => response.json()).then(async data => {
     // console.log(data);
     for (const playerId of data) {
         console.log(playerId);
