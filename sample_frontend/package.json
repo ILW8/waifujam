@@ -1,8 +1,10 @@
 {
   "scripts": {
-    "livereload": "live-server"
+    "livereload": "live-server",
+    "osuproxy": "node node_modules/local-cors-proxy/bin/lcp.js --proxyUrl https://osu.ppy.sh/"
   },
   "dependencies": {
-    "live-server": "^1.2.2"
+    "live-server": "^1.2.2",
+    "local-cors-proxy": "^1.1.0"
   }
 }
