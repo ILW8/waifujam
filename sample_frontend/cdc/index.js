@@ -5,7 +5,10 @@ const corsProxyBaseUrl = `http://localhost:8010/proxy`
 
 fetch("data/apiv1token.txt").then(async response => {
     apiV1Token = await response.text();
-
+    if (apiV1Token.length < 5) {
+        console.error("osu API token is invalid, please paste a valid api v1 token in data/apiv1token.txt")
+        return;
+    }
     populatePlayers();
 })
 
