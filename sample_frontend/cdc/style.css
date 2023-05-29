@@ -1,0 +1,94 @@
+@font-face {
+    font-family: "Astrospace";
+    src: url("../fonts/AstroSpace-0Wl3o.otf");
+}
+
+body,
+html {
+    padding: 0;
+    margin: 0;
+    overflow-y: hidden;
+    user-select: none;
+}
+
+
+#main {
+    color: black;
+    width: 1920px;
+    height: 1080px;
+    position: relative;
+    background-image: url('../static/background.png');
+    /*text-shadow: 0px 0px 8px black;*/
+}
+
+#playerList {
+    color: black;
+    width: 450px;
+    height: 900px;
+    position: absolute;
+    left: 66px;
+    top: 145px;
+    background-image: url('../static/playerpanel.png');
+}
+
+#currentlyPicking {
+    font-size: 60px;
+    font-family: 'Astrospace', sans-serif;
+    font-weight: normal;
+    color: #898989;
+    width: 1306px;
+    position: absolute;
+    left: 551px;
+    top: 77px;
+    /*text-shadow: 0px 0px 8px black;*/
+}
+
+.teamPanel {    
+    color: black;
+    width: 300px;
+    height: 400px;
+    position: absolute;
+    background-image: url('../static/teampanel.png');
+}
+
+#teamOne {
+    left: 551px;
+    top: 210px;
+}
+
+#teamTwo {
+    left: 886px;
+    top: 210px;
+}
+
+#teamThree {
+    left: 1221px;
+    top: 210px;
+}
+
+#teamFour {
+    left: 1556px;
+    top: 210px;
+}
+
+#teamFive {
+    left: 551px;
+    top: 645px;
+}
+
+#teamSix {
+    left: 886px;
+    top: 645px;
+}
+
+#teamSeven {
+    left: 1221px;
+    top: 645px;
+}
+
+#teamEight {
+    position: absolute;
+    left: 1556px;
+    top: 645px;
+}
+
