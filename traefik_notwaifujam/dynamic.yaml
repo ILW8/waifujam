@@ -1,0 +1,67 @@
+http:
+  # Add the router
+  routers:
+    api:
+      rule: "PathPrefix(`/`)"
+      service: api@internal
+      entryPoints:
+      - "traefikapi"
+
+    router0:
+      entryPoints:
+      - "ep0"
+      middlewares:
+      - my-basic-auth
+      - cors
+      service: service-foo
+      rule: "PathPrefix(`/api`)"
+
+    routerPlayer:
+      entryPoints:
+      - "ep0"
+      service: service-foo
+      middlewares:
+      - cors
+      rule: "PathPrefix(`/`)"
+      priority: 1
+
+    routePlayerSocket:
+      entryPoints:
+      - "epSocket"
+      service: service-player
+      middlewares:
+      - cors
+      rule: "PathPrefix(`/`)"
+
+  # Add the middleware
+  middlewares:
+    my-basic-auth:
+      basicAuth:
+        users:
+        - test:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/
+        - soundboard:$apr1$9vgsw1td$q/yOJRLqJTeGDKF.V0EEf1
+        # About 220,000,000 results (0.50 seconds)
+        - soundboard:$apr1$oks19fh5$HbhebmYEi8qdTl9W/yOH/1
+
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - OPTIONS
+          - PUT
+        accessControlAllowHeaders: "*"
+        accessControlAllowOriginList:
+          - "http://btmc.live:8081"
+
+  # Add the service
+  services:
+    service-foo:
+      loadBalancer:
+        servers:
+        - url: http://127.0.0.1:1080/
+        passHostHeader: false
+    service-player:
+      loadBalancer:
+        servers:
+        - url: http://127.0.0.1:1081/
+        passHostHeader: false

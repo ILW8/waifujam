@@ -1,0 +1,18 @@
+providers:
+  file:
+    filename: "./conf/dynamic.yaml"
+    watch: true
+
+entryPoints:
+  ep0:
+    address: :8819
+
+  epSocket:
+    address: :8081
+
+  traefikapi:
+    address: :8099
+
+
+api:
+  dashboard: true
