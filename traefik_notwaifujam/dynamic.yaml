@@ -1,3 +1,9 @@
+tls:
+  certificates:
+    - certFile: ./cert.pem
+      keyFile: ./privkey.pem
+
+
 http:
   # Add the router
   routers:
@@ -7,31 +13,26 @@ http:
       entryPoints:
       - "traefikapi"
 
-    router0:
+    trtpost:
       entryPoints:
       - "ep0"
       middlewares:
       - my-basic-auth
       - cors
       service: service-foo
-      rule: "PathPrefix(`/api`)"
+      rule: "Host(`trt2.btmc.live`) && !Method(`GET`)"
+      priority: 9999
+      tls: {}
 
-    routerPlayer:
+    trtapi:
       entryPoints:
-      - "ep0"
+        - "ep0"
+      middlewares:
+        - cors
       service: service-foo
-      middlewares:
-      - cors
-      rule: "PathPrefix(`/`)"
+      rule: "Host(`trt2.btmc.live`)"
       priority: 1
-
-    routePlayerSocket:
-      entryPoints:
-      - "epSocket"
-      service: service-player
-      middlewares:
-      - cors
-      rule: "PathPrefix(`/`)"
+      tls: {}
 
   # Add the middleware
   middlewares:
@@ -43,6 +44,9 @@ http:
         # About 220,000,000 results (0.50 seconds)
         - soundboard:$apr1$oks19fh5$HbhebmYEi8qdTl9W/yOH/1
 
+        # https://discord.com/channels/@me/261053355793580032/1124503967032938567
+        - trt2api:$apr1$2dqv79xz$Uzp3Oc25eQRA9y1v9nc9x.
+
     cors:
       headers:
         accessControlAllowMethods:
@@ -51,17 +55,11 @@ http:
           - PUT
         accessControlAllowHeaders: "*"
         accessControlAllowOriginList:
-          - "http://btmc.live:8081"
+          - "*"
 
-  # Add the service
   services:
     service-foo:
       loadBalancer:
         servers:
-        - url: http://127.0.0.1:1080/
-        passHostHeader: false
-    service-player:
-      loadBalancer:
-        servers:
-        - url: http://127.0.0.1:1081/
+        - url: http://127.0.0.1:5280/
         passHostHeader: false
